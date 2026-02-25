@@ -4,46 +4,91 @@ import threading
 from urllib.parse import urlparse
 
 import os
+import psycopg2
+from psycopg2 import extras
 
-# Data persistence file
-DATA_FILE = "data_history.json"
+# --- DATABASE CONFIGURATION ---
+# Update these with your local TimescaleDB/Postgres credentials
+DB_CONFIG = {
+    "dbname": "postgres",
+    "user": "postgres",
+    "password": "your_password",
+    "host": "localhost",
+    "port": "5432"
+}
 
-# Shared storage for sensor data
+# Shared storage for current sensor states (in-memory cache)
 sensor_data = {
     "sensor_1": {"id": "sensor_1", "name": "Centar Osijek", "lat": 45.5550, "lng": 18.6761, "aqi": 0, "pm25": 0, "temp": 0, "hum": 0, "last_update": "Never", "history": []},
     "sensor_2": {"id": "sensor_2", "name": "Retfala", "lat": 45.5644, "lng": 18.6468, "aqi": 0, "pm25": 0, "temp": 0, "hum": 0, "last_update": "Never", "history": []},
     "sensor_3": {"id": "sensor_3", "name": "FERIT Campus", "lat": 45.5607, "lng": 18.7183, "aqi": 0, "pm25": 0, "temp": 0, "hum": 0, "last_update": "Never", "history": []}
 }
 
-def load_persistence():
-    if os.path.exists(DATA_FILE):
+class DatabaseManager:
+    def __init__(self, config):
+        self.config = config
+        self.conn = None
+
+    def connect(self):
         try:
-            with open(DATA_FILE, "r") as f:
-                persisted = json.load(f)
-                for sid in sensor_data:
-                    if sid in persisted:
-                        sensor_data[sid]["history"] = persisted[sid].get("history", [])
-                        # Update current values to last history entry if available
-                        if sensor_data[sid]["history"]:
-                            last = sensor_data[sid]["history"][-1]
-                            sensor_data[sid].update(last)
-                            sensor_data[sid]["last_update"] = last.get("time", "Never")
+            self.conn = psycopg2.connect(**self.config)
+            print("Successfully connected to TimescaleDB")
         except Exception as e:
-            print(f"Error loading persistence: {e}")
+            print(f"Error connecting to TimescaleDB: {e}")
+            self.conn = None
 
-def save_persistence():
-    try:
-        with open(DATA_FILE, "w") as f:
-            json.dump(sensor_data, f)
-    except Exception as e:
-        print(f"Error saving persistence: {e}")
+    def insert_reading(self, data):
+        if not self.conn: self.connect()
+        if not self.conn: return
 
-# Initial load
-load_persistence()
+        try:
+            with self.conn.cursor() as cur:
+                query = """
+                INSERT INTO sensor_data (time, sensor_id, name, lat, lng, aqi, pm25, temp, hum)
+                VALUES (NOW(), %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                cur.execute(query, (
+                    data.get('id'),
+                    data.get('name'),
+                    data.get('lat'),
+                    data.get('lng'),
+                    data.get('aqi'),
+                    data.get('pm25'),
+                    data.get('temp'),
+                    data.get('hum')
+                ))
+                self.conn.commit()
+        except Exception as e:
+            print(f"DB Insert Error: {e}")
+            self.conn = None # Reset connection for retry
+
+    def get_history(self, sensor_id, limit=30):
+        if not self.conn: self.connect()
+        if not self.conn: return []
+
+        try:
+            with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                query = """
+                SELECT to_char(time, 'HH24:MI:SS') as time, aqi, pm25, temp, hum
+                FROM sensor_data
+                WHERE sensor_id = %s
+                ORDER BY time DESC
+                LIMIT %s
+                """
+                cur.execute(query, (sensor_id, limit))
+                # Return in chronological order for the chart
+                results = cur.fetchall()
+                history = [dict(row) for row in reversed(results)]
+                return history
+        except Exception as e:
+            print(f"DB Fetch Error: {e}")
+            self.conn = None
+            return []
+
+db = DatabaseManager(DB_CONFIG)
 
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def end_headers(self):
-        # Allow requests from any origin for ease of use in local development
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
@@ -56,6 +101,19 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
         if parsed_path.path == '/api/data':
+            # Enrich sensor_data with the latest history from the database
+            for sid in sensor_data:
+                sensor_data[sid]["history"] = db.get_history(sid)
+                if sensor_data[sid]["history"]:
+                    last = sensor_data[sid]["history"][-1]
+                    sensor_data[sid].update({
+                        "aqi": last["aqi"],
+                        "pm25": last["pm25"],
+                        "temp": last["temp"],
+                        "hum": last["hum"],
+                        "last_update": last["time"]
+                    })
+
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
@@ -73,22 +131,11 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 data = json.loads(post_data.decode('utf-8'))
                 sensor_id = data.get('id')
                 if sensor_id in sensor_data:
-                    # Save history (timestamp and values)
-                    history_entry = {
-                        "time": data.get('last_update'),
-                        "aqi": data.get('aqi'),
-                        "pm25": data.get('pm25'),
-                        "temp": data.get('temp'),
-                        "hum": data.get('hum')
-                    }
-                    sensor_data[sensor_id]["history"].append(history_entry)
-                    # Keep last 30 entries
-                    if len(sensor_data[sensor_id]["history"]) > 30:
-                        sensor_data[sensor_id]["history"].pop(0)
-                        
-                    # Update current data
+                    # 1. Update in-memory cache for immediate status
                     sensor_data[sensor_id].update(data)
-                    save_persistence() # Persist to file
+                    
+                    # 2. Persist to TimescaleDB
+                    db.insert_reading(data)
                     
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')

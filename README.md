@@ -34,10 +34,13 @@ The system currently implements a high-performance **REST API gateway**. While t
 - In a full deployment, sensors act as **Publishers** (MQTT), and a bridge service acts as a **Subscriber** that relays data to the EnvioDev backend via the provided API.
 - This ensures compatibility with the **Publish-Subscribe model** described in the technical report.
 
-### 2. Time-Series Storage (Persistent Data)
-Data is managed using a logic consistent with **TimescaleDB** (PostgreSQL-based time-series database).
-- **Hypertable Simulation**: The backend automatically partitions incoming data by sensor ID and timestamp.
-- **Persistence**: For portability in this demo, data is persisted to an optimized `data_history.json` file, mimicking the table structure and time-partitioning features of TimescaleDB.
+### 2. Time-Series Storage (TimescaleDB)
+The system is now fully integrated with **TimescaleDB** for professional-grade time-series data storage.
+- **Direct Integration**: The `server.py` backend connects directly to a PostgreSQL/TimescaleDB instance via `psycopg2`.
+- **Automated Partitioning**: Sensor data is stored in a **hypertable**, ensuring high performance even with millions of records.
+- **Persistence**: Unlike in-memory caches, all historical data survives server restarts and is stored with microsecond precision.
+
+**Setup Note:** Ensure you have run the SQL schema provided in the `implementation_plan.md` (or the Technical Report) and updated your credentials in `server.py`.
 
 ---
 
