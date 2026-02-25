@@ -1,6 +1,6 @@
 # EnvioDev — Air Quality Monitoring Dashboard
 
-EnvioDev is a modern, real-time air quality monitoring platform designed for official air quality reporting. It features a sleek glassmorphism dashboard, interactive mapping, and historical measurement trends.
+EnvioDev is a modern, real-time air quality monitoring platform designed for official air quality reporting. It features a dashboard, interactive mapping, and historical measurement trends.
 
 ![EnvioDev Dashboard Demonstration](https://raw.githubusercontent.com/Antunovic/EnvioDev-AirQualityDashboard/main/EnvioDev_Demo_Recording.webp)
 
