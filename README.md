@@ -41,34 +41,33 @@ Data is managed using a logic consistent with **TimescaleDB** (PostgreSQL-based 
 
 ---
 
-## 🛠 Hardware Implementation Details
+## 🛠 Hardware Implementation Details (MQTT)
 
-### API Specification
-**Endpoint**: `POST http://[SERVER_IP]:8000/api/update`  
-**Content-Type**: `application/json`
+As defined in the technical report, EnvioDev nodes utilize the **MQTT protocol** for efficient, low-power data transmission.
 
-```json
-{
-  "id": "sensor_1",
-  "name": "Centar Osijek",
-  "lat": 45.5550, "lng": 18.6761,
-  "aqi": 42, "pm25": 12.5, "temp": 22.4, "hum": 45,
-  "last_update": "10:15:30"
-}
-```
+### MQTT Specification
+- **Broker**: `broker.hivemq.com` (Example)
+- **Port**: `1883`
+- **Topic**: `enviodev/sensors/osijek`
 
-### Arduino/ESP32 Code Snippet
+### Arduino/ESP32 (MQTT) Code Snippet
 ```cpp
 #include <WiFi.h>
-#include <HTTPClient.h>
+#include <PubSubClient.h> // MQTT Library
 
-void sendData(int aqi, float temp, float hum) {
-  HTTPClient http;
-  http.begin("http://YOUR_SERVER_IP:8000/api/update");
-  http.addHeader("Content-Type", "application/json");
-  String json = "{\"id\":\"sensor_1\",\"aqi\":" + String(aqi) + ",\"temp\":" + String(temp, 1) + "}";
-  http.POST(json);
-  http.end();
+void loop() {
+  if (!client.connected()) reconnect();
+  client.loop();
+
+  // Read real sensors...
+  float raw = analogRead(34);
+  int aqi = map(raw, 200, 3800, 0, 300);
+
+  // Publish JSON Payload
+  String payload = "{\"id\":\"sensor_3\",\"aqi\":" + String(aqi) + "}";
+  client.publish("enviodev/sensors/osijek", payload.c_str());
+  
+  delay(15000);
 }
 ```
 

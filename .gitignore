@@ -8,3 +8,5 @@ node_modules/
 .idea/
 .vscode/
 simulator.py
+real_sensor_client.py
+esp32_sensor_client.ino
