@@ -83,4 +83,4 @@ void sendData(int aqi, float temp, float hum) {
 - `logo.png`: EnvioDev logo.
 
 ---
-*Developed for official air quality monitoring and project reporting.*
+
