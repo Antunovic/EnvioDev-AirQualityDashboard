@@ -39,13 +39,6 @@ Data is managed using a logic consistent with **TimescaleDB** (PostgreSQL-based 
 - **Hypertable Simulation**: The backend automatically partitions incoming data by sensor ID and timestamp.
 - **Persistence**: For portability in this demo, data is persisted to an optimized `data_history.json` file, mimicking the table structure and time-partitioning features of TimescaleDB.
 
-### 3. Presentation Layer: Why Custom Web UI?
-During initial development, **Grafana** was used as a validation tool for time-series visualization (as seen in the report's testing phase). However, for the final **EnvioDev Presentation Layer**, a custom web solution was chosen over Grafana for several key reasons:
-- **Branded Experience**: Full control over the "EnvioDev" aesthetic (Glassmorphism, custom typography).
-- **Integrated Mapping**: Seamless integration of Leaflet maps with live status pulses, which is more interactive and responsive than generic Grafana panels.
-- **Ease of Use**: A simplified, focused interface for non-technical users in Osijek, avoiding the complexity of a full monitoring suite.
-- **Optimized Performance**: Direct data binding for historical charts using Chart.js, resulting in faster load times and smoother animations.
-
 ---
 
 ## 🛠 Hardware Implementation Details
