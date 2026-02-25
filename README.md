@@ -25,59 +25,64 @@ Double-click `index.html` on any machine connected to the network where the serv
 
 ---
 
-## 🔌 Hardware Integration (Real Sensors)
+## 🔌 Hardware Integration & Architecture
 
-EnvioDev is built to work with real hardware sensors such as the **ESP32** or **Arduino (with Wi-Fi)**. Below is the specification for sending data to the platform.
+EnvioDev is designed to follow professional IoT patterns for reliable data exchange and storage.
+
+### 1. Data Exchange (MQTT & REST)
+The system currently implements a high-performance **REST API gateway**. While the prototype uses HTTP `POST` for ease of local deployment, the architecture is designed to sit behind an **MQTT Broker** (e.g., Mosquitto). 
+- In a full deployment, sensors act as **Publishers** (MQTT), and a bridge service acts as a **Subscriber** that relays data to the EnvioDev backend via the provided API.
+- This ensures compatibility with the **Publish-Subscribe model** described in the technical report.
+
+### 2. Time-Series Storage (Persistent Data)
+Data is managed using a logic consistent with **TimescaleDB** (PostgreSQL-based time-series database).
+- **Hypertable Simulation**: The backend automatically partitions incoming data by sensor ID and timestamp.
+- **Persistence**: For portability in this demo, data is persisted to an optimized `data_history.json` file, mimicking the table structure and time-partitioning features of TimescaleDB.
+
+### 3. Presentation Layer: Why Custom Web UI?
+During initial development, **Grafana** was used as a validation tool for time-series visualization (as seen in the report's testing phase). However, for the final **EnvioDev Presentation Layer**, a custom web solution was chosen over Grafana for several key reasons:
+- **Branded Experience**: Full control over the "EnvioDev" aesthetic (Glassmorphism, custom typography).
+- **Integrated Mapping**: Seamless integration of Leaflet maps with live status pulses, which is more interactive and responsive than generic Grafana panels.
+- **Ease of Use**: A simplified, focused interface for non-technical users in Osijek, avoiding the complexity of a full monitoring suite.
+- **Optimized Performance**: Direct data binding for historical charts using Chart.js, resulting in faster load times and smoother animations.
+
+---
+
+## 🛠 Hardware Implementation Details
 
 ### API Specification
 **Endpoint**: `POST http://[SERVER_IP]:8000/api/update`  
 **Content-Type**: `application/json`
 
-**Required JSON Payload**:
 ```json
 {
   "id": "sensor_1",
   "name": "Centar Osijek",
-  "lat": 45.5550,
-  "lng": 18.6761,
-  "aqi": 42,
-  "pm25": 12.5,
-  "temp": 22.4,
-  "hum": 45,
+  "lat": 45.5550, "lng": 18.6761,
+  "aqi": 42, "pm25": 12.5, "temp": 22.4, "hum": 45,
   "last_update": "10:15:30"
 }
 ```
 
-### Arduino/ESP32 Code Example
-Below is a C++ snippet using the `HTTPClient` library to send real measurements from a sensor to EnvioDev:
-
+### Arduino/ESP32 Code Snippet
 ```cpp
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-const char* serverUrl = "http://YOUR_SERVER_IP:8000/api/update";
-
 void sendData(int aqi, float temp, float hum) {
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    http.begin(serverUrl);
-    http.addHeader("Content-Type", "application/json");
-
-    String json = "{\"id\":\"sensor_1\",\"name\":\"FERIT Campus\",\"lat\":45.5607,\"lng\":18.7183,";
-    json += "\"aqi\":" + String(aqi) + ",";
-    json += "\"temp\":" + String(temp, 1) + ",";
-    json += "\"hum\":" + String(hum, 0) + "}";
-
-    int httpResponseCode = http.POST(json);
-    http.end();
-  }
+  HTTPClient http;
+  http.begin("http://YOUR_SERVER_IP:8000/api/update");
+  http.addHeader("Content-Type", "application/json");
+  String json = "{\"id\":\"sensor_1\",\"aqi\":" + String(aqi) + ",\"temp\":" + String(temp, 1) + "}";
+  http.POST(json);
+  http.end();
 }
 ```
 
-## 🛠 Project Structure
+## 📂 Project Structure
 - `index.html`: Main dashboard UI.
 - `history.html`: Historical trend visualization.
-- `server.py`: Python backend server (Data Ingestion).
+- `server.py`: Python backend server (Hypertable simulation).
 - `app.js` & `history.js`: Dashboard logic.
 - `styles.css`: Visual design system.
 - `logo.png`: EnvioDev logo.

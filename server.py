@@ -3,12 +3,43 @@ import json
 import threading
 from urllib.parse import urlparse
 
+import os
+
+# Data persistence file
+DATA_FILE = "data_history.json"
+
 # Shared storage for sensor data
 sensor_data = {
     "sensor_1": {"id": "sensor_1", "name": "Centar Osijek", "lat": 45.5550, "lng": 18.6761, "aqi": 0, "pm25": 0, "temp": 0, "hum": 0, "last_update": "Never", "history": []},
     "sensor_2": {"id": "sensor_2", "name": "Retfala", "lat": 45.5644, "lng": 18.6468, "aqi": 0, "pm25": 0, "temp": 0, "hum": 0, "last_update": "Never", "history": []},
     "sensor_3": {"id": "sensor_3", "name": "FERIT Campus", "lat": 45.5607, "lng": 18.7183, "aqi": 0, "pm25": 0, "temp": 0, "hum": 0, "last_update": "Never", "history": []}
 }
+
+def load_persistence():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                persisted = json.load(f)
+                for sid in sensor_data:
+                    if sid in persisted:
+                        sensor_data[sid]["history"] = persisted[sid].get("history", [])
+                        # Update current values to last history entry if available
+                        if sensor_data[sid]["history"]:
+                            last = sensor_data[sid]["history"][-1]
+                            sensor_data[sid].update(last)
+                            sensor_data[sid]["last_update"] = last.get("time", "Never")
+        except Exception as e:
+            print(f"Error loading persistence: {e}")
+
+def save_persistence():
+    try:
+        with open(DATA_FILE, "w") as f:
+            json.dump(sensor_data, f)
+    except Exception as e:
+        print(f"Error saving persistence: {e}")
+
+# Initial load
+load_persistence()
 
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def end_headers(self):
@@ -57,6 +88,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                         
                     # Update current data
                     sensor_data[sensor_id].update(data)
+                    save_persistence() # Persist to file
+                    
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.end_headers()
