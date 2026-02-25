@@ -1,0 +1,325 @@
+:root {
+    --bg-color: #0c0e14;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --primary-color: #4facfe;
+    --secondary-color: #00f2fe;
+    --text-color: #ffffff;
+    --text-muted: #a0a0a0;
+    --aqi-good: #00e676;
+    --aqi-moderate: #ffea00;
+    --aqi-unhealthy: #ff9100;
+    --aqi-hazardous: #ff1744;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Outfit', sans-serif;
+}
+
+body {
+    background: var(--bg-color);
+    background-image:
+        radial-gradient(at 0% 0%, hsla(210, 100%, 20%, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, hsla(280, 100%, 20%, 0.15) 0px, transparent 50%);
+    color: var(--text-color);
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+}
+
+.glass-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    backdrop-filter: blur(20px);
+}
+
+/* Sidebar */
+.sidebar {
+    width: 280px;
+    background: rgba(0, 0, 0, 0.3);
+    border-right: 1px solid var(--glass-border);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 3rem;
+}
+
+.logo-img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.brand-name {
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+.envio {
+    color: #90ee90;
+    /* Light Green */
+}
+
+.dev {
+    color: #87cefa;
+    /* Light Blue */
+}
+
+.sensor-list h3 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    margin-bottom: 1rem;
+}
+
+.sensor-list ul {
+    list-style: none;
+}
+
+.sensor-list li {
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.sensor-list li:hover {
+    background: var(--glass-bg);
+}
+
+.sensor-list li.active {
+    background: rgba(79, 172, 254, 0.2);
+    border-color: var(--primary-color);
+}
+
+/* Dashboard Main */
+.dashboard {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.top-bar h1 {
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+.top-bar p {
+    color: var(--text-muted);
+}
+
+.status-badge {
+    background: rgba(0, 230, 118, 0.1);
+    color: #00e676;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.pulse {
+    width: 8px;
+    height: 8px;
+    background: #00e676;
+    border-radius: 50%;
+    animation: pulse-animation 2s infinite;
+}
+
+@keyframes pulse-animation {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.7);
+    }
+
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 8px rgba(0, 230, 118, 0);
+    }
+
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(0, 230, 118, 0);
+    }
+}
+
+/* Cards */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+}
+
+.card {
+    padding: 1.5rem;
+    border-radius: 20px;
+    display: flex;
+    gap: 1.5rem;
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.clickable {
+    cursor: pointer;
+}
+
+.clickable:active {
+    transform: scale(0.98);
+}
+
+.glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(10px);
+}
+
+.card-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.aqi-icon {
+    background: rgba(0, 230, 118, 0.2);
+    color: #00e676;
+}
+
+.pm-icon {
+    background: rgba(255, 145, 0, 0.2);
+    color: #ff9100;
+}
+
+.temp-icon {
+    background: rgba(79, 172, 254, 0.2);
+    color: #4facfe;
+}
+
+.hum-icon {
+    background: rgba(0, 242, 254, 0.2);
+    color: #00f2fe;
+}
+
+.card-content h4 {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+.card-content h2 {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.unit {
+    font-size: 1rem;
+    color: var(--text-muted);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+}
+
+.progress {
+    height: 100%;
+    width: 0%;
+    transition: width 1s ease-in-out, background 0.3s ease;
+}
+
+/* Map */
+.map-section {
+    flex: 1;
+    min-height: 400px;
+    border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.map-overlay {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 2;
+    background: rgba(12, 14, 20, 0.8);
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    border: 1px solid var(--glass-border);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 10px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    body {
+        flex-direction: column;
+        overflow: auto;
+        height: auto;
+    }
+
+    .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--glass-border);
+    }
+
+    .dashboard {
+        height: auto;
+    }
+}
