@@ -490,6 +490,9 @@ function updateDashboard() {
     } else {
         updateLabel.style.display = 'none';
     }
+    
+    // Global tracking of current active status
+    window.isCurrentDeviceActive = isDeviceActive;
 
     // Update Stats
     if(document.getElementById('val-voc')) document.getElementById('val-voc').innerText = sensor.voc;
@@ -511,8 +514,28 @@ function updateDashboard() {
 }
 
 function viewHistory(type) {
+    if (!window.isCurrentDeviceActive) {
+        showToast();
+        return;
+    }
     // Open historical trend page for current sensor and specific metric
     window.location.href = `history.html?sensor=${currentSensorId}&type=${type}`;
+}
+
+function openSensorDetail(sensorName) {
+    if (!window.isCurrentDeviceActive) {
+        showToast();
+        return;
+    }
+    window.location.href = `sensor.html?sensor=${sensorName}`;
+}
+
+function showToast() {
+    const toast = document.getElementById('toast');
+    if (toast) {
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+    }
 }
 
 // ======================== CSV EXPORT LOGIC ==========================

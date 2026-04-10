@@ -47,12 +47,12 @@
             <nav class="sensor-list" style="margin-bottom: 1rem;">
                 <h3 style="font-size: 0.8rem; text-transform: uppercase; color: #a0a0a0; margin-bottom: 1rem;">Sensors Detail View</h3>
                 <ul style="list-style: none; padding: 0;">
-                    <li onclick="window.location.href='sensor.html?sensor=BME688'" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-microchip" style="width: 20px;"></i> BME688</li>
-                    <li onclick="window.location.href='sensor.html?sensor=NEXTPM'" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-smog" style="width: 20px;"></i> NEXTPM</li>
-                    <li onclick="window.location.href='sensor.html?sensor=SCD30'" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-wind" style="width: 20px;"></i> SCD30</li>
-                    <li onclick="window.location.href='sensor.html?sensor=SENSORTECH'" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-vial" style="width: 20px;"></i> SENSORTECH</li>
-                    <li onclick="window.location.href='sensor.html?sensor=SGP41'" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-mask" style="width: 20px;"></i> SGP41</li>
-                    <li onclick="window.location.href='sensor.html?sensor=SHT31'" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-temperature-half" style="width: 20px;"></i> SHT31</li>
+                    <li onclick="openSensorDetail('BME688')" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-microchip" style="width: 20px;"></i> BME688</li>
+                    <li onclick="openSensorDetail('NEXTPM')" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-smog" style="width: 20px;"></i> NEXTPM</li>
+                    <li onclick="openSensorDetail('SCD30')" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-wind" style="width: 20px;"></i> SCD30</li>
+                    <li onclick="openSensorDetail('SENSORTECH')" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-vial" style="width: 20px;"></i> SENSORTECH</li>
+                    <li onclick="openSensorDetail('SGP41')" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-mask" style="width: 20px;"></i> SGP41</li>
+                    <li onclick="openSensorDetail('SHT31')" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-temperature-half" style="width: 20px;"></i> SHT31</li>
                 </ul>
             </nav>
 
@@ -201,6 +201,10 @@
                 <button onclick="downloadCSV()" id="download-btn-actual" style="flex: 1.5; padding: 12px; border-radius: 8px; border: none; background: #ff9100; color: #12141c; cursor: pointer; font-weight: bold; transition: 0.3s; font-family: 'Outfit';"><i class="fas fa-download"></i> Extract CSV</button>
             </div>
         </div>
+    </div>
+
+    <div id="toast" class="toast">
+        <i class="fas fa-exclamation-circle"></i> This sensor node is currently offline.
     </div>
 
     <script src="config.js"></script>
