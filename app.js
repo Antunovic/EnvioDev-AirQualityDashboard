@@ -275,16 +275,18 @@ async function updateAllLocations() {
     
     const endTs = Date.now();
     const startTs = endTs - (24 * 60 * 60 * 1000);
+    const oneMinuteAgo = endTs - (60 * 1000);
     
     ALL_DEVICES.forEach(async (dev) => {
-        if (dev.id === TB_DEVICE_ID) return; // Main thread handles active ID safely
-        
-        const url = `https://${TB_HOST}/api/plugins/telemetry/DEVICE/${dev.id}/values/timeseries?keys=GNSS&startTs=${startTs}&endTs=${endTs}&limit=1`;
+        // We fetch the latest BME688 timestamp as a proxy for "Activity"
+        const url = `https://${TB_HOST}/api/plugins/telemetry/DEVICE/${dev.id}/values/timeseries?keys=BME688,GNSS&startTs=${startTs}&endTs=${endTs}&limit=1`;
         try {
             const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${TB_JWT_TOKEN}` } });
             if (resp.ok) {
                 const data = await resp.json();
-                if (data.GNSS && data.GNSS.length > 0) {
+                
+                // 1. Handle Map Location if GNSS exists
+                if (data.GNSS && data.GNSS.length > 0 && dev.id !== TB_DEVICE_ID) {
                     let gnss = parseTBVal(data.GNSS[0].value);
                     if (gnss.Latitude && gnss.Longitude) {
                         let lat = parseNMEA(gnss.Latitude, gnss.latDirection);
@@ -294,11 +296,36 @@ async function updateAllLocations() {
                         }
                     }
                 }
+
+                // 2. Update Dropdown Status Text
+                let lastTs = 0;
+                // Combine all possible keys to find the absolute latest packet
+                Object.keys(data).forEach(key => {
+                    if (data[key] && data[key][0].ts > lastTs) lastTs = data[key][0].ts;
+                });
+
+                const isActive = lastTs > oneMinuteAgo;
+                updateDropdownItemStatus(dev.id, dev.name, isActive);
             }
         } catch (e) {
-            console.warn("Background map loc error: ", e);
+            console.warn("Status/Loc check error: ", e);
         }
     });
+}
+
+function updateDropdownItemStatus(deviceId, baseName, isActive) {
+    const select = document.getElementById('device-select');
+    if (!select) return;
+
+    for (let i = 0; i < select.options.length; i++) {
+        const opt = select.options[i];
+        if (opt.value === deviceId) {
+            const statusText = isActive ? "● Online" : "○ Offline";
+            opt.text = `${baseName} (${statusText})`;
+            opt.style.color = isActive ? "#00e676" : "#ff1744"; // Green for active, Red for inactive
+            break;
+        }
+    }
 }
 
 async function fetchThingsBoardData() {
