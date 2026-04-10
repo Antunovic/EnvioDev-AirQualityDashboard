@@ -14,6 +14,8 @@
     --aqi-moderate: #ffea00;
     --aqi-unhealthy: #ff9100;
     --aqi-hazardous: #ff1744;
+    --logo-envio: #90ee90;
+    --logo-dev: #87cefa;
 }
 
 body.light-theme {
@@ -24,6 +26,8 @@ body.light-theme {
     --text-color: #1a1a1a;
     --text-muted: #666666;
     --card-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    --logo-envio: #2e7d32;
+    --logo-dev: #1976d2;
 }
 
 * {
@@ -83,13 +87,11 @@ body {
 }
 
 .envio {
-    color: #90ee90;
-    /* Light Green */
+    color: var(--logo-envio);
 }
 
 .dev {
-    color: #87cefa;
-    /* Light Blue */
+    color: var(--logo-dev);
 }
 
 .sensor-list h3 {
