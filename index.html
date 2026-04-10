@@ -15,6 +15,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for live graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body class="dark-theme">
@@ -24,19 +26,53 @@
                 <img src="logo.png" alt="EnvioDev Logo" class="logo-img">
                 <span class="brand-name"><span class="envio">Envio</span><span class="dev">Dev</span></span>
             </div>
-            <nav class="sensor-list">
-                <h3>Select Sensor</h3>
-                <ul id="sensor-nav">
-                    <!-- Sensors will be injected here -->
-                    <li class="loading-item">Fetching sensors...</li>
+            
+            <div style="margin-bottom: 2.5rem; position: relative;">
+                <label for="device-select" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #4facfe; margin-bottom: 0.8rem; display: block; font-weight: 600;"><i class="fas fa-satellite-dish" style="margin-right: 5px;"></i> Active Sensor Node</label>
+                <div style="position: relative;">
+                    <select id="device-select" onchange="changeDevice()" style="appearance: none; -webkit-appearance: none; width: 100%; padding: 14px 16px; border-radius: 12px; background: linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%); color: #ffffff; border: 1px solid rgba(79, 172, 254, 0.3); outline: none; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 500; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: border-color 0.3s ease;">
+                        <option value="1043c890-3256-11f1-b641-ab83ce7b9a6f" style="background: #12141c; color: white;">Enviodev device 1</option>
+                        <option value="1df04d60-3256-11f1-a3ea-950631e217c8" style="background: #12141c; color: white;">Enviodev device 2</option>
+                        <option value="2b8f8bc0-3256-11f1-b641-ab83ce7b9a6f" style="background: #12141c; color: white;">Enviodev device 3</option>
+                        <option value="427b7740-3256-11f1-b641-ab83ce7b9a6f" style="background: #12141c; color: white;">Enviodev device 4</option>
+                        <option value="4bfaf430-3256-11f1-b641-ab83ce7b9a6f" style="background: #12141c; color: white;">Enviodev device 5</option>
+                    </select>
+                    <!-- Custom Arrow Icon to replace ugly browser-default arrows -->
+                    <div style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #4facfe; font-size: 0.9rem;">
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sensor-list" style="margin-bottom: 1rem;">
+                <h3 style="font-size: 0.8rem; text-transform: uppercase; color: #a0a0a0; margin-bottom: 1rem;">Sensors Detail View</h3>
+                <ul style="list-style: none; padding: 0;">
+                    <li onclick="window.location.href='sensor.html?sensor=BME688'" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-microchip" style="width: 20px;"></i> BME688</li>
+                    <li onclick="window.location.href='sensor.html?sensor=NEXTPM'" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-smog" style="width: 20px;"></i> NEXTPM</li>
+                    <li onclick="window.location.href='sensor.html?sensor=SCD30'" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-wind" style="width: 20px;"></i> SCD30</li>
+                    <li onclick="window.location.href='sensor.html?sensor=SENSORTECH'" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-vial" style="width: 20px;"></i> SENSORTECH</li>
+                    <li onclick="window.location.href='sensor.html?sensor=SGP41'" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-mask" style="width: 20px;"></i> SGP41</li>
+                    <li onclick="window.location.href='sensor.html?sensor=SHT31'" style="padding: 10px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'"><i class="fas fa-temperature-half" style="width: 20px;"></i> SHT31</li>
                 </ul>
             </nav>
+
+            <div class="auth-section" style="margin-top: auto; margin-bottom: 10px; padding: 0 20px; text-align: center;">
+                <button id="export-csv-btn" onclick="openExportModal()" style="width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255, 145, 0, 0.4); background: rgba(255, 145, 0, 0.1); color: #ff9100; cursor: pointer; transition: 0.3s; font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 600;">
+                    <i class="fas fa-file-csv"></i> Export CSV Data
+                </button>
+            </div>
+
+            <div class="auth-section" style="margin-bottom: 20px; padding: 0 20px; text-align: center;">
+                <button id="tb-login-btn" onclick="startThingsBoardConnection()" style="width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: white; cursor: pointer; transition: 0.3s; font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 600;">
+                    <i class="fas fa-plug"></i> Connect to Cloud
+                </button>
+            </div>
         </aside>
 
         <main class="dashboard">
             <header class="top-bar">
                 <div class="header-info">
-                    <h1 id="current-sensor-name">Overview</h1>
+                    <h1 id="current-sensor-name">EnvioNode Device</h1>
                     <p>Last Updated: <span id="last-update">--:--:--</span></p>
                 </div>
                 <div class="status-badge" id="online-status">
@@ -45,15 +81,28 @@
             </header>
 
             <section class="stats-grid">
-                <div class="card glass clickable" onclick="viewHistory('aqi')">
-                    <div class="card-icon aqi-icon"><i class="fas fa-mask"></i></div>
+                <div class="card glass clickable" onclick="viewHistory('voc')">
+                    <div class="card-icon" style="background: rgba(0, 230, 118, 0.2); color: #00e676;"><i class="fas fa-flask"></i></div>
                     <div class="card-content">
-                        <h4>AQI Index</h4>
-                        <h2 id="val-aqi">--</h2>
-                        <div class="progress-bar">
-                            <div id="progress-aqi" class="progress"></div>
-                        </div>
-                        <p id="label-aqi">Waiting for data...</p>
+                        <h4>VOC Index</h4>
+                        <h2 id="val-voc">--</h2>
+                        <p>Volatile Organic</p>
+                    </div>
+                </div>
+                <div class="card glass clickable" onclick="viewHistory('nox')">
+                    <div class="card-icon" style="background: rgba(255, 23, 68, 0.2); color: #ff1744;"><i class="fas fa-industry"></i></div>
+                    <div class="card-content">
+                        <h4>NOx Index</h4>
+                        <h2 id="val-nox">--</h2>
+                        <p>Nitrogen Oxides</p>
+                    </div>
+                </div>
+                <div class="card glass clickable" onclick="viewHistory('pm1')">
+                    <div class="card-icon pm-icon"><i class="fas fa-smog"></i></div>
+                    <div class="card-content">
+                        <h4>PM1</h4>
+                        <h2 id="val-pm1">-- <span class="unit">µg/m³</span></h2>
+                        <p>Ultra-fine particles</p>
                     </div>
                 </div>
                 <div class="card glass clickable" onclick="viewHistory('pm25')">
@@ -62,6 +111,14 @@
                         <h4>PM2.5</h4>
                         <h2 id="val-pm">-- <span class="unit">µg/m³</span></h2>
                         <p>Fine particulate matter</p>
+                    </div>
+                </div>
+                <div class="card glass clickable" onclick="viewHistory('pm10')">
+                    <div class="card-icon pm-icon"><i class="fas fa-smog"></i></div>
+                    <div class="card-content">
+                        <h4>PM10</h4>
+                        <h2 id="val-pm10">-- <span class="unit">µg/m³</span></h2>
+                        <p>Coarse particles</p>
                     </div>
                 </div>
                 <div class="card glass clickable" onclick="viewHistory('temp')">
@@ -80,6 +137,14 @@
                         <p>Relative humidity</p>
                     </div>
                 </div>
+                <div class="card glass clickable" onclick="viewHistory('co2')">
+                    <div class="card-icon" style="background: rgba(200, 100, 255, 0.2); color: #c864ff;"><i class="fas fa-wind"></i></div>
+                    <div class="card-content">
+                        <h4>CO2 Level</h4>
+                        <h2 id="val-co2">-- <span class="unit">ppm</span></h2>
+                        <p>Carbon Dioxide</p>
+                    </div>
+                </div>
             </section>
 
             <section class="map-section glass">
@@ -88,7 +153,49 @@
                     <i class="fas fa-location-dot"></i> Sensor Location
                 </div>
             </section>
+
+
         </main>
+    </div>
+
+    <!-- Export CSV Range Modal -->
+    <div id="export-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+        <div class="glass" style="padding: 2.5rem; border-radius: 16px; width: 420px; max-width: 90%; border: 1px solid rgba(255,255,255,0.1); background: #12141c; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+            <h2 style="color: white; margin-bottom: 0.5rem; font-size: 1.5rem;"><i class="fas fa-file-csv" style="color: #ff9100; margin-right: 10px;"></i> Export Data</h2>
+            <p style="color: #a0a0a0; font-size: 0.85rem; margin-bottom: 1.5rem; line-height: 1.4;">Select a timeframe to export. Note: Hardware data retention is limited to a maximum of 30 days.</p>
+            
+            <label style="color: #4facfe; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 0.5rem; font-weight: 600;">Target Device Node:</label>
+            <div style="position: relative; margin-bottom: 1.5rem;">
+                <select id="export-device-select" style="appearance: none; -webkit-appearance: none; width: 100%; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.1); font-family: 'Outfit'; outline: none; cursor: pointer;">
+                    <option value="ALL" style="background: #12141c; color: #ff9100;">All Devices (Merged Export)</option>
+                    <option value="1043c890-3256-11f1-b641-ab83ce7b9a6f" style="background: #12141c; color: white;">Enviodev device 1</option>
+                    <option value="1df04d60-3256-11f1-a3ea-950631e217c8" style="background: #12141c; color: white;">Enviodev device 2</option>
+                    <option value="2b8f8bc0-3256-11f1-b641-ab83ce7b9a6f" style="background: #12141c; color: white;">Enviodev device 3</option>
+                    <option value="427b7740-3256-11f1-b641-ab83ce7b9a6f" style="background: #12141c; color: white;">Enviodev device 4</option>
+                    <option value="4bfaf430-3256-11f1-b641-ab83ce7b9a6f" style="background: #12141c; color: white;">Enviodev device 5</option>
+                </select>
+                <div style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #4facfe;">
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+            </div>
+
+            <label style="color: #4facfe; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 0.5rem; font-weight: 600;">Time Range Start:</label>
+            <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+                <input type="date" id="export-start-date" style="flex: 1; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.1); font-family: 'Outfit'; outline: none;">
+                <input type="text" id="export-start-time" placeholder="HH:MM" maxlength="5" oninput="formatTimeInput(this)" style="flex: 1; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.1); font-family: 'Outfit'; outline: none;">
+            </div>
+            
+            <label style="color: #4facfe; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 0.5rem; font-weight: 600;">Time Range End:</label>
+            <div style="display: flex; gap: 10px; margin-bottom: 2rem;">
+                <input type="date" id="export-end-date" style="flex: 1; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.1); font-family: 'Outfit'; outline: none;">
+                <input type="text" id="export-end-time" placeholder="HH:MM" maxlength="5" oninput="formatTimeInput(this)" style="flex: 1; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.1); font-family: 'Outfit'; outline: none;">
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button onclick="closeExportModal()" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: white; cursor: pointer; transition: 0.3s; font-family: 'Outfit'; font-weight: 600;">Cancel</button>
+                <button onclick="downloadCSV()" id="download-btn-actual" style="flex: 1.5; padding: 12px; border-radius: 8px; border: none; background: #ff9100; color: #12141c; cursor: pointer; font-weight: bold; transition: 0.3s; font-family: 'Outfit';"><i class="fas fa-download"></i> Extract CSV</button>
+            </div>
+        </div>
     </div>
 
     <script src="app.js"></script>

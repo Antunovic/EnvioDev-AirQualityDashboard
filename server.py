@@ -161,3 +161,30 @@ def run_server(port=8000):
 
 if __name__ == "__main__":
     run_server()
+
+
+
+
+
+timestamps = []  # Lista za pohranu vremenskih oznaka (timestamps)
+values = []  # Lista za pohranu vrijednosti
+
+for entry in data:
+    timestamps.append(time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(entry['ts'] / 1000)))
+    values.append(float(entry['value']))  
+
+
+# Postavljanje grafa
+plt.figure(figsize=(10, 6))  
+plt.plot(timestamps, values, marker='o', linestyle='-', color='b')  
+plt.xticks(rotation=45, ha='right')  
+plt.xticks([])  
+plt.ylabel('Vrijednost senzora')  
+plt.title('Podaci senzora kroz vrijeme')  
+
+# Podešavanje rasporeda za bolju vidljivost elemenata
+plt.tight_layout()
+
+
+# Prikaz grafa 
+plt.show()  

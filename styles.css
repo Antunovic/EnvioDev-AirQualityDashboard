@@ -272,6 +272,39 @@ body {
     overflow: hidden;
 }
 
+/* Live Chart */
+.chart-section {
+    border-radius: 20px;
+    padding: 1.5rem;
+}
+
+.chart-header {
+    margin-bottom: 1rem;
+}
+
+.chart-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.chart-header h3 i {
+    color: var(--primary-color);
+    margin-right: 0.4rem;
+}
+
+.chart-header p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
 #map {
     width: 100%;
     height: 100%;

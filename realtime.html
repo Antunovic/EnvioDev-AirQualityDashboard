@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHT31 Realtime Data</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #121212;
+            color: white;
+            font-family: 'Outfit', sans-serif;
+        }
+        .container {
+            width: 90%;
+            height: 90%;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .chart-wrapper {
+            flex-grow: 1;
+            position: relative;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+        }
+        .canvas-container {
+            position: relative;
+            flex-grow: 1;
+            width: 100%;
+        }
+        .btn-start {
+            padding: 12px 24px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 230, 118, 0.4);
+            background: rgba(0, 230, 118, 0.2);
+            color: #00e676;
+            cursor: pointer;
+            transition: 0.3s;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .btn-start:hover {
+            background: rgba(0, 230, 118, 0.3);
+        }
+        .btn-start:disabled {
+            opacity: 0.7;
+            cursor: default;
+        }
+    </style>
+</head>
+<body class="dark-theme">
+    <div class="glass-container container">
+        <header>
+            <div>
+                <h1 style="margin: 0;"><i class="fas fa-chart-line" style="color: #4facfe;"></i> SHT31 Live Telemetry</h1>
+                <p style="color: #a0a0a0; margin: 5px 0 0 0;">Real-time Temperature & Humidity graph directly from ThingsBoard</p>
+                <h3 style="margin-top: 10px; color: #fff;">Last Update: <span id="last-update" style="color: #00e676;">Waiting...</span></h3>
+            </div>
+            <div>
+                <button id="tb-login-btn" class="btn-start" onclick="startPolling()">
+                    <i class="fas fa-play"></i> Start Live Streaming
+                </button>
+                <button class="btn-start" onclick="window.location.href='index.html'" style="margin-left: 10px; border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.1); color: white;">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </button>
+            </div>
+        </header>
+
+        <section class="chart-wrapper glass">
+            <div class="canvas-container">
+                <canvas id="sht31Chart"></canvas>
+            </div>
+        </section>
+    </div>
+    
+    <script src="realtime.js"></script>
+</body>
+</html>
