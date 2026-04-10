@@ -40,9 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function startThingsBoardConnection() {
+    const enteredPassword = prompt("Authentication Required: Please enter your ThingsBoard Access Password:");
+    if (!enteredPassword) return;
+
     const credentials = {
         "username": "antonio.antunovic@ferit.hr",
-        "password": "fibonacci112358" 
+        "password": enteredPassword 
     };
     try {
         const response = await fetch(`https://${TB_HOST}/api/auth/login`, {

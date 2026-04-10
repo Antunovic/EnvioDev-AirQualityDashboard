@@ -180,10 +180,15 @@ async function startThingsBoardConnection() {
     const btn = document.getElementById('tb-login-btn');
     if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Spajanje...`;
     
-    // Tvoji credencijali 
+    const enteredPassword = prompt("Authentication Required: Please enter your ThingsBoard Access Password:");
+    if (!enteredPassword) {
+        if (btn) btn.innerHTML = `<i class="fas fa-times"></i> Access Denied`;
+        return;
+    }
+
     const credentials = {
         "username": "antonio.antunovic@ferit.hr",
-        "password": "fibonacci112358" 
+        "password": enteredPassword 
     };
 
     try {
