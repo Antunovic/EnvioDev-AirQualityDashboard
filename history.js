@@ -40,7 +40,14 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function startThingsBoardConnection() {
-    const enteredPassword = prompt("Authentication Required: Please enter your ThingsBoard Access Password:");
+    let enteredPassword = "";
+    
+    if (typeof TB_PASSWORD_SECRET !== 'undefined' && TB_PASSWORD_SECRET !== "TVOJA_NOVA_LOZINKA_OVDJE") {
+        enteredPassword = TB_PASSWORD_SECRET;
+    } else {
+        enteredPassword = prompt("Authentication Required: Please enter your ThingsBoard Access Password:");
+    }
+
     if (!enteredPassword) return;
 
     const credentials = {

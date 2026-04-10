@@ -10,3 +10,4 @@ node_modules/
 simulator.py
 real_sensor_client.py
 esp32_sensor_client.ino
+config.js
