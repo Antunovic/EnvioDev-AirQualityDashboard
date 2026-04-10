@@ -99,8 +99,13 @@ function initMap() {
         attributionControl: false
     }).setView([45.5550, 18.6761], 13);
 
-    // Dark theme for Leaflet
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    // Theme-aware tiles
+    const isLight = document.body.classList.contains('light-theme');
+    const tileUrl = isLight 
+        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+    L.tileLayer(tileUrl, {
         maxZoom: 19
     }).addTo(map);
 
@@ -118,6 +123,21 @@ function initMap() {
     });
 
     highlightActiveMarker();
+    
+    window.addEventListener('themeChanged', (e) => {
+        const isLight = e.detail.theme === 'light';
+        const tileUrl = isLight 
+            ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+            : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        
+        map.eachLayer((layer) => {
+            if (layer instanceof L.TileLayer) {
+                map.removeLayer(layer);
+            }
+        });
+        
+        L.tileLayer(tileUrl, { maxZoom: 19 }).addTo(map);
+    });
 
     // Force Leaflet to recalculate map dimensions safely
     setTimeout(() => {

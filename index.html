@@ -56,6 +56,14 @@
                 </ul>
             </nav>
 
+            <!-- Theme Settings Toggle -->
+            <div style="padding: 0 20px; margin-bottom: 2rem;">
+                <li onclick="toggleTheme()" class="glass" style="list-style: none; display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 12px; cursor: pointer; transition: 0.3s;">
+                    <i id="theme-icon" class="fas fa-sun" style="color: #ffea00; width: 20px; text-align: center;"></i>
+                    <span id="theme-text" style="font-weight: 600; font-size: 0.9rem;">Light Mode</span>
+                </li>
+            </div>
+
             <div class="auth-section" style="margin-top: auto; margin-bottom: 10px; padding: 0 20px; text-align: center;">
                 <button id="export-csv-btn" onclick="openExportModal()" style="width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255, 145, 0, 0.4); background: rgba(255, 145, 0, 0.1); color: #ff9100; cursor: pointer; transition: 0.3s; font-family: 'Outfit', sans-serif; font-size: 0.9rem; font-weight: 600;">
                     <i class="fas fa-file-csv"></i> Export CSV Data
@@ -199,6 +207,7 @@
     </div>
 
     <script src="config.js"></script>
+    <script src="theme.js"></script>
     <script src="app.js"></script>
 </body>
 
