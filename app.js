@@ -474,7 +474,22 @@ function updateDashboard() {
 
     // Update Header
     document.getElementById('current-sensor-name').innerText = sensor.name;
-    document.getElementById('last-update').innerText = sensor.last_update;
+    
+    // Check if device is active (any sensor updated in last 60s)
+    const nowTs = Date.now();
+    const oneMinuteAgo = nowTs - (60 * 1000);
+    let isDeviceActive = false;
+    Object.values(tbLastUpdateTs).forEach(ts => {
+        if (ts > oneMinuteAgo) isDeviceActive = true;
+    });
+
+    const updateLabel = document.getElementById('last-update').parentElement;
+    if (isDeviceActive) {
+        document.getElementById('last-update').innerText = sensor.last_update;
+        updateLabel.style.display = 'block';
+    } else {
+        updateLabel.style.display = 'none';
+    }
 
     // Update Stats
     if(document.getElementById('val-voc')) document.getElementById('val-voc').innerText = sensor.voc;
