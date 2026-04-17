@@ -36,26 +36,18 @@ function initMap() {
         attributionControl: false
     }).setView([45.5550, 18.6761], 13);
 
-    const isLight = document.body.classList.contains('light-theme');
-    const tileUrl = isLight 
-        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    // Google Satellite Hybrid Tiles
+    const satelliteUrl = 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
+    const subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
 
-    L.tileLayer(tileUrl, { maxZoom: 19 }).addTo(map);
+    L.tileLayer(satelliteUrl, {
+        maxZoom: 20,
+        subdomains: subdomains
+    }).addTo(map);
 
     window.addEventListener('themeChanged', (e) => {
-        const isLight = e.detail.theme === 'light';
-        const newTileUrl = isLight 
-            ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-            : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-        
-        map.eachLayer((layer) => {
-            if (layer instanceof L.TileLayer) {
-                map.removeLayer(layer);
-            }
-        });
-        
-        L.tileLayer(newTileUrl, { maxZoom: 19 }).addTo(map);
+        // Since it's satellite view, we'll keep the satellite layer 
+        // regardless of theme to fulfill the user's specific request.
     });
     
     trajectoryPath = L.polyline([], {
