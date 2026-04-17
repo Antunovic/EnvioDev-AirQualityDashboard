@@ -229,11 +229,6 @@ function updateTrajectoryWithAQI(gnssPoints, metrics) {
 
     if (gnssPoints.length === 0) return;
 
-    // Distances and AQI Markers
-    let totalDist = 0;
-    let lastPoint = gnssPoints[0];
-    let nextMarkerAt = 500; // start marking every 500m
-
     // Start Marker
     markers.push(L.marker([gnssPoints[0].lat, gnssPoints[0].lon], {
         icon: L.divIcon({
@@ -242,32 +237,38 @@ function updateTrajectoryWithAQI(gnssPoints, metrics) {
         })
     }).addTo(map).bindPopup("Journey Start"));
 
+    let lastMarkerPoint = gnssPoints[0];
+    let totalTraveled = 0;
+
     for (let i = 1; i < gnssPoints.length; i++) {
         let currentPoint = gnssPoints[i];
-        let d = getDistance(lastPoint.lat, lastPoint.lon, currentPoint.lat, currentPoint.lon);
-        totalDist += d;
+        // Calculate displacement from the LAST PLACED marker to ensure exact 500m spacing
+        let distFromLastMarker = getDistance(lastMarkerPoint.lat, lastMarkerPoint.lon, currentPoint.lat, currentPoint.lon);
+        
+        // Also track total distance for the end popup
+        totalTraveled += getDistance(gnssPoints[i-1].lat, gnssPoints[i-1].lon, currentPoint.lat, currentPoint.lon);
 
-        if (totalDist >= nextMarkerAt) {
-            // Find closest PM2.5 for AQI
+        if (distFromLastMarker >= 500) {
             let pmData = findClosestValue(currentPoint.ts, metrics['PM2.5']);
             let pmValue = pmData ? pmData.y : 0;
             let aqi = calculateSimplifiedAQI(pmValue);
-            let color = getAQIColor(aqi);
+            let bgColor = getAQIColor(aqi);
+            // Fix visibility: Use dark text for yellow (Moderate) background
+            let textColor = (aqi > 50 && aqi <= 100) ? '#12141c' : 'white';
 
             const aqiIcon = L.divIcon({
-                html: `<div style="background: ${color}; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 10px; border: 2px solid rgba(255,255,255,0.5); box-shadow: 0 2px 10px rgba(0,0,0,0.3);">AQI ${aqi}</div>`,
+                html: `<div style="background: ${bgColor}; color: ${textColor}; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; border: 2px solid rgba(255,255,255,0.7); box-shadow: 0 4px 15px rgba(0,0,0,0.4); text-align: center; line-height: 1;">${aqi}</div>`,
                 className: 'aqi-marker',
-                iconSize: [32, 32],
-                iconAnchor: [16, 16]
+                iconSize: [36, 36],
+                iconAnchor: [18, 18]
             });
 
             let m = L.marker([currentPoint.lat, currentPoint.lon], { icon: aqiIcon }).addTo(map);
-            m.bindPopup(`<b>AQI at ${Math.round(totalDist)}m</b><br>PM2.5: ${pmValue} µg/m³<br>Status: ${getAQIStatus(aqi)}`);
+            m.bindPopup(`<b>Air Quality Detail</b><br>AQI: ${aqi}<br>PM2.5: ${pmValue} µg/m³<br>Status: ${getAQIStatus(aqi)}`);
             markers.push(m);
 
-            nextMarkerAt += 500;
+            lastMarkerPoint = currentPoint; // Reset reference for next 500m
         }
-        lastPoint = currentPoint;
     }
 
     // End Marker
@@ -277,7 +278,7 @@ function updateTrajectoryWithAQI(gnssPoints, metrics) {
             html: '<i class="fas fa-map-marker-alt" style="color: #ff1744; font-size: 24px;"></i>',
             className: 'custom-div-icon', iconSize: [24, 24], iconAnchor: [12, 24]
         })
-    }).addTo(map).bindPopup(`Journey End<br>Total Distance: ${Math.round(totalDist)}m`));
+    }).addTo(map).bindPopup(`Journey End<br>Total Trajectory: ${Math.round(totalTraveled)}m`));
 
     map.fitBounds(trajectoryPath.getBounds(), { padding: [50, 50] });
 }
