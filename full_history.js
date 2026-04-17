@@ -269,9 +269,9 @@ function renderDeviceOnMap(gnssPoints, metrics, deviceName) {
         if (cumulativePathDist >= 500) {
             let pmData = findClosestValue(curr.ts, metrics['PM2.5']);
             let pmValue = pmData ? pmData.y : 0;
-            let aqi = calculateSimplifiedAQI(pmValue);
-            let bgColor = getAQIColor(aqi);
-            let textColor = (aqi > 50 && aqi <= 100) ? '#12141c' : 'white';
+            let aqi = calculateEAQI(pmValue);
+            let bgColor = getEAQIColor(aqi);
+            let textColor = (aqi > 20 && aqi <= 25) ? '#12141c' : 'white'; // Dark text for Yellow/Moderate
 
             const aqiIcon = L.divIcon({
                 html: `<div style="background: ${bgColor}; color: ${textColor}; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; border: 2px solid white; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">${aqi}</div>`,
@@ -282,7 +282,7 @@ function renderDeviceOnMap(gnssPoints, metrics, deviceName) {
             let overlapIdx = markerDataList.findIndex(m => getDistance(curr.lat, curr.lon, m.lat, m.lon) < 250);
 
             let mObj = L.marker([curr.lat, curr.lon], { icon: aqiIcon }).addTo(map);
-            mObj.bindPopup(`<b>${deviceName}</b><br>AQI: ${aqi}<br>PM2.5: ${pmValue} µg/m³<br><small>Time: ${formatShortTime(new Date(curr.ts))}</small>`);
+            mObj.bindPopup(`<b>${deviceName}</b><br>EAQI: ${aqi}<br>PM2.5: ${pmValue} µg/m³<br>Status: ${getEAQIStatus(aqi)}<br><small>Time: ${formatShortTime(new Date(curr.ts))}</small>`);
 
             if (overlapIdx !== -1) {
                 map.removeLayer(markerDataList[overlapIdx].markerObj);
@@ -400,28 +400,29 @@ function findClosestValue(ts, data) {
     return closest;
 }
 
-function calculateSimplifiedAQI(pm25) {
-    if (pm25 <= 12) return Math.round((50 / 12) * pm25);
-    if (pm25 <= 35.4) return Math.round(((100 - 51) / (35.4 - 12.1)) * (pm25 - 12.1) + 51);
-    if (pm25 <= 55.4) return Math.round(((150 - 101) / (55.4 - 35.5)) * (pm25 - 35.5) + 101);
-    if (pm25 <= 150.4) return Math.round(((200 - 151) / (150.4 - 55.5)) * (pm25 - 55.5) + 151);
-    return 250;
+// EAQI (European Air Quality Index) calculation for PM2.5
+function calculateEAQI(pm25) {
+    if (pm25 <= 10) return Math.round((20 / 10) * pm25); // Very Good (0-20)
+    if (pm25 <= 20) return Math.round(((40 - 21) / (20 - 10.1)) * (pm25 - 10.1) + 21); // Good (21-40)
+    if (pm25 <= 25) return Math.round(((60 - 41) / (25 - 20.1)) * (pm25 - 20.1) + 41); // Moderate (41-60)
+    if (pm25 <= 50) return Math.round(((80 - 61) / (50 - 25.1)) * (pm25 - 25.1) + 61); // Poor (61-80)
+    return 100; // Very Poor (81-100)
 }
 
-function getAQIColor(aqi) {
-    if (aqi <= 50) return '#00e676';
-    if (aqi <= 100) return '#ffea00';
-    if (aqi <= 150) return '#ff9100';
-    if (aqi <= 200) return '#ff1744';
-    return '#8f3f97';
+function getEAQIColor(aqi) {
+    if (aqi <= 20) return '#00796b'; // Very Good (Dark Green)
+    if (aqi <= 40) return '#00e676'; // Good (Green)
+    if (aqi <= 60) return '#ffea00'; // Moderate (Yellow)
+    if (aqi <= 80) return '#ff9100'; // Poor (Orange)
+    return '#ff1744'; // Very Poor (Red)
 }
 
-function getAQIStatus(aqi) {
-    if (aqi <= 50) return 'Good';
-    if (aqi <= 100) return 'Moderate';
-    if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
-    if (aqi <= 200) return 'Unhealthy';
-    return 'Very Unhealthy';
+function getEAQIStatus(aqi) {
+    if (aqi <= 20) return 'Very Good';
+    if (aqi <= 40) return 'Good';
+    if (aqi <= 60) return 'Moderate';
+    if (aqi <= 80) return 'Poor';
+    return 'Very Poor';
 }
 
 function formatShortTime(d) {
