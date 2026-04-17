@@ -51,9 +51,9 @@ function initMap() {
     });
     
     trajectoryPath = L.polyline([], {
-        color: '#4facfe',
+        color: '#ff1744',
         weight: 4,
-        opacity: 0.8,
+        opacity: 0.9,
         dashArray: '10, 10',
         lineJoin: 'round'
     }).addTo(map);
