@@ -223,7 +223,11 @@ function updateTrajectoryWithAQI(gnssPoints, metrics) {
     const coords = gnssPoints.map(p => [p.lat, p.lon]);
     if (trajectoryPath) trajectoryPath.setLatLngs(coords);
     
-    // Clear old markers
+    // Clear old visual markers
+    // We'll maintain an internal list of objects to track location/ts for replacement logic
+    let markerList = []; 
+
+    // Helper to clear existing markers from the map before re-rendering
     markers.forEach(m => map.removeLayer(m));
     markers = [];
 
@@ -242,10 +246,7 @@ function updateTrajectoryWithAQI(gnssPoints, metrics) {
 
     for (let i = 1; i < gnssPoints.length; i++) {
         let currentPoint = gnssPoints[i];
-        // Calculate displacement from the LAST PLACED marker to ensure exact 500m spacing
         let distFromLastMarker = getDistance(lastMarkerPoint.lat, lastMarkerPoint.lon, currentPoint.lat, currentPoint.lon);
-        
-        // Also track total distance for the end popup
         totalTraveled += getDistance(gnssPoints[i-1].lat, gnssPoints[i-1].lon, currentPoint.lat, currentPoint.lon);
 
         if (distFromLastMarker >= 500) {
@@ -253,7 +254,6 @@ function updateTrajectoryWithAQI(gnssPoints, metrics) {
             let pmValue = pmData ? pmData.y : 0;
             let aqi = calculateSimplifiedAQI(pmValue);
             let bgColor = getAQIColor(aqi);
-            // Fix visibility: Use dark text for yellow (Moderate) background
             let textColor = (aqi > 50 && aqi <= 100) ? '#12141c' : 'white';
 
             const aqiIcon = L.divIcon({
@@ -263,11 +263,28 @@ function updateTrajectoryWithAQI(gnssPoints, metrics) {
                 iconAnchor: [18, 18]
             });
 
-            let m = L.marker([currentPoint.lat, currentPoint.lon], { icon: aqiIcon }).addTo(map);
-            m.bindPopup(`<b>Air Quality Detail</b><br>AQI: ${aqi}<br>PM2.5: ${pmValue} µg/m³<br>Status: ${getAQIStatus(aqi)}`);
-            markers.push(m);
+            // Check if we are too close (e.g., < 200m) to ANY already placed marker (for overlapping paths)
+            // If we are, we replace the older one in that slot
+            let existingIdx = markerList.findIndex(m => getDistance(currentPoint.lat, currentPoint.lon, m.lat, m.lon) < 200);
 
-            lastMarkerPoint = currentPoint; // Reset reference for next 500m
+            let mObj = L.marker([currentPoint.lat, currentPoint.lon], { icon: aqiIcon }).addTo(map);
+            mObj.bindPopup(`<b>Air Quality Detail</b><br>AQI: ${aqi}<br>PM2.5: ${pmValue} µg/m³<br>Status: ${getAQIStatus(aqi)}<br><small>Updated: ${formatShortTime(new Date(currentPoint.ts))}</small>`);
+            
+            if (existingIdx !== -1) {
+                // Remove old marker from map
+                map.removeLayer(markerList[existingIdx].markerObj);
+                // Also remove it from our visual 'markers' tracker used for cleanup
+                let globalIdx = markers.indexOf(markerList[existingIdx].markerObj);
+                if (globalIdx > -1) markers.splice(globalIdx, 1);
+                
+                // Replace in markerList
+                markerList[existingIdx] = { markerObj: mObj, lat: currentPoint.lat, lon: currentPoint.lon };
+            } else {
+                markerList.push({ markerObj: mObj, lat: currentPoint.lat, lon: currentPoint.lon });
+            }
+
+            markers.push(mObj);
+            lastMarkerPoint = currentPoint;
         }
     }
 
@@ -280,7 +297,12 @@ function updateTrajectoryWithAQI(gnssPoints, metrics) {
         })
     }).addTo(map).bindPopup(`Journey End<br>Total Trajectory: ${Math.round(totalTraveled)}m`));
 
-    map.fitBounds(trajectoryPath.getBounds(), { padding: [50, 50] });
+    // Wait for markers to be added before fitting bounds
+    setTimeout(() => {
+        if (trajectoryPath && trajectoryPath.getLatLngs().length > 0) {
+            map.fitBounds(trajectoryPath.getBounds(), { padding: [50, 50] });
+        }
+    }, 100);
 }
 
 function findClosestValue(ts, data) {
