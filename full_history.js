@@ -153,13 +153,23 @@ function processAndRender(data) {
     let gnssPoints = [];
 
     // 1. Process GNSS
+    const OSIJEK_CENTER = { lat: 45.5550, lon: 18.6761 };
+    const MAX_DISTANCE_OS = 20000; // 20km
+
     if (data.GNSS) {
         data.GNSS.sort((a,b) => a.ts - b.ts).forEach(pt => {
             let gnss = parseTBVal(pt.value);
             if (gnss.Latitude && gnss.Longitude) {
                 let lat = parseNMEA(gnss.Latitude, gnss.latDirection);
                 let lon = parseNMEA(gnss.Longitude, gnss.lonDirection);
-                if (lat && lon) gnssPoints.push({ lat, lon, ts: pt.ts });
+                
+                if (lat && lon) {
+                    // Filter: Only points within 20km of Osijek
+                    let distFromCenter = getDistance(lat, lon, OSIJEK_CENTER.lat, OSIJEK_CENTER.lon);
+                    if (distFromCenter <= MAX_DISTANCE_OS) {
+                        gnssPoints.push({ lat, lon, ts: pt.ts });
+                    }
+                }
             }
         });
     }
