@@ -150,22 +150,21 @@ function processAndRender(data) {
         'CO2 Level': []
     };
     
-    let pathCoords = [];
+    let gnssPoints = [];
 
-    // 1. Process GNSS for Trajectory
+    // 1. Process GNSS
     if (data.GNSS) {
         data.GNSS.sort((a,b) => a.ts - b.ts).forEach(pt => {
             let gnss = parseTBVal(pt.value);
             if (gnss.Latitude && gnss.Longitude) {
                 let lat = parseNMEA(gnss.Latitude, gnss.latDirection);
                 let lon = parseNMEA(gnss.Longitude, gnss.lonDirection);
-                if (lat && lon) pathCoords.push([lat, lon]);
+                if (lat && lon) gnssPoints.push({ lat, lon, ts: pt.ts });
             }
         });
     }
 
     // 2. Process Telemetry for 8 Metrics
-    // SGP41 -> VOC, NOx
     if (data.SGP41) {
         data.SGP41.forEach(pt => {
             let val = parseTBVal(pt.value);
@@ -174,7 +173,6 @@ function processAndRender(data) {
         });
     }
 
-    // NEXTPM -> PM1, PM2.5, PM10
     if (data.NEXTPM) {
         data.NEXTPM.forEach(pt => {
             let val = parseTBVal(pt.value);
@@ -184,7 +182,6 @@ function processAndRender(data) {
         });
     }
 
-    // SHT31 -> Temp, Hum (Primary)
     if (data.SHT31) {
         data.SHT31.forEach(pt => {
             let val = parseTBVal(pt.value);
@@ -193,19 +190,16 @@ function processAndRender(data) {
         });
     }
 
-    // BME688 -> Temp, Hum (Fallback if needed, though we just append for now)
     if (data.BME688) {
         data.BME688.forEach(pt => {
             let val = parseTBVal(pt.value);
-            // Only add if we don't have too many points from SHT31 or just merge
-            if (metricsData['Temperature'].length < 10) { // arbitrary small check
+            if (metricsData['Temperature'].length < 10) {
                  if (val.temperature !== undefined) metricsData['Temperature'].push({ x: pt.ts, y: parseFloat(val.temperature) });
                  if (val.humidity !== undefined) metricsData['Humidity'].push({ x: pt.ts, y: parseFloat(val.humidity) });
             }
         });
     }
 
-    // SCD30 -> CO2
     if (data.SCD30) {
         data.SCD30.forEach(pt => {
             let val = parseTBVal(pt.value);
@@ -213,8 +207,11 @@ function processAndRender(data) {
         });
     }
 
-    // Update Map
-    updateTrajectory(pathCoords);
+    // Sort all metrics for faster lookup
+    Object.keys(metricsData).forEach(k => metricsData[k].sort((a,b) => a.x - b.x));
+
+    // Update Map with path and AQI markers
+    updateTrajectoryWithAQI(gnssPoints, metricsData);
 
     // Render Charts
     Object.keys(metricsData).forEach(label => {
@@ -222,36 +219,116 @@ function processAndRender(data) {
     });
 }
 
-function updateTrajectory(coords) {
+function updateTrajectoryWithAQI(gnssPoints, metrics) {
+    const coords = gnssPoints.map(p => [p.lat, p.lon]);
     if (trajectoryPath) trajectoryPath.setLatLngs(coords);
     
     // Clear old markers
     markers.forEach(m => map.removeLayer(m));
     markers = [];
 
-    if (coords.length > 0) {
-        // Start marker
-        const startIcon = L.divIcon({
+    if (gnssPoints.length === 0) return;
+
+    // Distances and AQI Markers
+    let totalDist = 0;
+    let lastPoint = gnssPoints[0];
+    let nextMarkerAt = 500; // start marking every 500m
+
+    // Start Marker
+    markers.push(L.marker([gnssPoints[0].lat, gnssPoints[0].lon], {
+        icon: L.divIcon({
             html: '<i class="fas fa-play-circle" style="color: #00e676; font-size: 20px;"></i>',
-            className: 'custom-div-icon',
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
-        });
-        const startMarker = L.marker(coords[0], { icon: startIcon }).addTo(map).bindPopup("Journey Start");
-        
-        // End marker
-        const endIcon = L.divIcon({
-            html: '<i class="fas fa-map-marker-alt" style="color: #ff1744; font-size: 24px;"></i>',
-            className: 'custom-div-icon',
-            iconSize: [24, 24],
-            iconAnchor: [12, 24]
-        });
-        const endMarker = L.marker(coords[coords.length - 1], { icon: endIcon }).addTo(map).bindPopup("Journey End");
-        
-        markers.push(startMarker, endMarker);
-        
-        map.fitBounds(trajectoryPath.getBounds(), { padding: [50, 50] });
+            className: 'custom-div-icon', iconSize: [20, 20], iconAnchor: [10, 10]
+        })
+    }).addTo(map).bindPopup("Journey Start"));
+
+    for (let i = 1; i < gnssPoints.length; i++) {
+        let currentPoint = gnssPoints[i];
+        let d = getDistance(lastPoint.lat, lastPoint.lon, currentPoint.lat, currentPoint.lon);
+        totalDist += d;
+
+        if (totalDist >= nextMarkerAt) {
+            // Find closest PM2.5 for AQI
+            let pmData = findClosestValue(currentPoint.ts, metrics['PM2.5']);
+            let pmValue = pmData ? pmData.y : 0;
+            let aqi = calculateSimplifiedAQI(pmValue);
+            let color = getAQIColor(aqi);
+
+            const aqiIcon = L.divIcon({
+                html: `<div style="background: ${color}; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 10px; border: 2px solid rgba(255,255,255,0.5); box-shadow: 0 2px 10px rgba(0,0,0,0.3);">AQI ${aqi}</div>`,
+                className: 'aqi-marker',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+
+            let m = L.marker([currentPoint.lat, currentPoint.lon], { icon: aqiIcon }).addTo(map);
+            m.bindPopup(`<b>AQI at ${Math.round(totalDist)}m</b><br>PM2.5: ${pmValue} µg/m³<br>Status: ${getAQIStatus(aqi)}`);
+            markers.push(m);
+
+            nextMarkerAt += 500;
+        }
+        lastPoint = currentPoint;
     }
+
+    // End Marker
+    const lastIdx = gnssPoints.length - 1;
+    markers.push(L.marker([gnssPoints[lastIdx].lat, gnssPoints[lastIdx].lon], {
+        icon: L.divIcon({
+            html: '<i class="fas fa-map-marker-alt" style="color: #ff1744; font-size: 24px;"></i>',
+            className: 'custom-div-icon', iconSize: [24, 24], iconAnchor: [12, 24]
+        })
+    }).addTo(map).bindPopup(`Journey End<br>Total Distance: ${Math.round(totalDist)}m`));
+
+    map.fitBounds(trajectoryPath.getBounds(), { padding: [50, 50] });
+}
+
+function findClosestValue(ts, data) {
+    if (!data || data.length === 0) return null;
+    let closest = data[0];
+    let minDiff = Math.abs(ts - closest.x);
+    for (let i = 1; i < data.length; i++) {
+        let diff = Math.abs(ts - data[i].x);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = data[i];
+        }
+    }
+    return closest;
+}
+
+function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // Radius of Earth in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+function calculateSimplifiedAQI(pm25) {
+    if (pm25 <= 12) return Math.round((50 / 12) * pm25);
+    if (pm25 <= 35.4) return Math.round(((100 - 51) / (35.4 - 12.1)) * (pm25 - 12.1) + 51);
+    if (pm25 <= 55.4) return Math.round(((150 - 101) / (55.4 - 35.5)) * (pm25 - 35.5) + 101);
+    if (pm25 <= 150.4) return Math.round(((200 - 151) / (150.4 - 55.5)) * (pm25 - 55.5) + 151);
+    return 250;
+}
+
+function getAQIColor(aqi) {
+    if (aqi <= 50) return '#00e676';
+    if (aqi <= 100) return '#ffea00';
+    if (aqi <= 150) return '#ff9100';
+    if (aqi <= 200) return '#ff1744';
+    return '#8f3f97';
+}
+
+function getAQIStatus(aqi) {
+    if (aqi <= 50) return 'Good';
+    if (aqi <= 100) return 'Moderate';
+    if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
+    if (aqi <= 200) return 'Unhealthy';
+    return 'Very Unhealthy';
 }
 
 function renderChart(label, dataPoints, container) {
