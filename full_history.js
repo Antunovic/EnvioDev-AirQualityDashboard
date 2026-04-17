@@ -1,8 +1,8 @@
 const TB_HOST = 'eu.thingsboard.cloud';
 let TB_JWT_TOKEN = '';
 let map;
-let trajectoryPath;
 let markers = [];
+let trajectoryPaths = [];
 
 const METRICS_CONFIG = {
     'VOC Index': { icon: 'fa-flask', color: '#00e676', key: 'voc' },
@@ -14,6 +14,14 @@ const METRICS_CONFIG = {
     'Humidity': { icon: 'fa-droplet', color: '#00c6ff', key: 'hum' },
     'CO2 Level': { icon: 'fa-wind', color: '#c864ff', key: 'co2' }
 };
+
+const ALL_DEVICES = [
+    { id: "1043c890-3256-11f1-b641-ab83ce7b9a6f", name: "Enviodev device 1" },
+    { id: "1df04d60-3256-11f1-a3ea-950631e217c8", name: "Enviodev device 2" },
+    { id: "2b8f8bc0-3256-11f1-b641-ab83ce7b9a6f", name: "Enviodev device 3" },
+    { id: "427b7740-3256-11f1-b641-ab83ce7b9a6f", name: "Enviodev device 4" },
+    { id: "4bfaf430-3256-11f1-b641-ab83ce7b9a6f", name: "Enviodev device 5" }
+];
 
 document.addEventListener('DOMContentLoaded', () => {
     initMap();
@@ -46,17 +54,8 @@ function initMap() {
     }).addTo(map);
 
     window.addEventListener('themeChanged', (e) => {
-        // Since it's satellite view, we'll keep the satellite layer 
-        // regardless of theme to fulfill the user's specific request.
+        // Keep satellite view regardless of theme for consistency
     });
-    
-    trajectoryPath = L.polyline([], {
-        color: '#ff1744',
-        weight: 4,
-        opacity: 0.9,
-        dashArray: '10, 10',
-        lineJoin: 'round'
-    }).addTo(map);
 }
 
 async function startThingsBoardConnection() {
@@ -113,149 +112,160 @@ async function fetchHistoricalData() {
     // Fetch all relevant sensors for the 8 metrics + location
     const keys = 'BME688,GNSS,NEXTPM,SCD30,SGP41,SHT31';
     const limit = 10000;
-    const url = `https://${TB_HOST}/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=${keys}&startTs=${startTs}&endTs=${endTs}&limit=${limit}`;
+
+    let targets = [];
+    if (deviceId === 'ALL') {
+        targets = ALL_DEVICES;
+    } else {
+        targets = [ALL_DEVICES.find(d => d.id === deviceId)];
+    }
 
     try {
-        const response = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${TB_JWT_TOKEN}` }
+        const fetchPromises = targets.map(device => {
+            const url = `https://${TB_HOST}/api/plugins/telemetry/DEVICE/${device.id}/values/timeseries?keys=${keys}&startTs=${startTs}&endTs=${endTs}&limit=${limit}`;
+            return fetch(url, { headers: { 'Authorization': `Bearer ${TB_JWT_TOKEN}` } })
+                .then(res => res.json())
+                .then(data => ({ deviceId: device.id, name: device.name, data: data }))
+                .catch(e => null);
         });
-        const data = await response.json();
-        processAndRender(data);
+
+        const results = await Promise.all(fetchPromises);
+        processAndRender(results, deviceId === 'ALL');
     } catch (e) {
         grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 5rem; color: #ff1744;"><i class="fas fa-exclamation-triangle fa-3x"></i><p style="margin-top: 1rem;">Failed to retrieve historical data. Please try again.</p></div>';
         console.error(e);
     }
 }
 
-function processAndRender(data) {
+function processAndRender(results, isAllView) {
     const grid = document.getElementById('hist-charts-grid');
     grid.innerHTML = '';
     
-    let metricsData = {
-        'VOC Index': [],
-        'NOx Index': [],
-        'PM1': [],
-        'PM2.5': [],
-        'PM10': [],
-        'Temperature': [],
-        'Humidity': [],
-        'CO2 Level': []
-    };
-    
-    let gnssPoints = [];
+    // Clear old visual markers and paths
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+    trajectoryPaths.forEach(p => map.removeLayer(p));
+    trajectoryPaths = [];
 
-    // 1. Process GNSS
     const OSIJEK_CENTER = { lat: 45.5550, lon: 18.6761 };
     const MAX_DISTANCE_OS = 20000; // 20km
 
-    if (data.GNSS) {
-        data.GNSS.sort((a,b) => a.ts - b.ts).forEach(pt => {
-            let gnss = parseTBVal(pt.value);
-            if (gnss.Latitude && gnss.Longitude) {
-                let lat = parseNMEA(gnss.Latitude, gnss.latDirection);
-                let lon = parseNMEA(gnss.Longitude, gnss.lonDirection);
-                
-                if (lat && lon) {
-                    // Filter: Only points within 20km of Osijek
-                    let distFromCenter = getDistance(lat, lon, OSIJEK_CENTER.lat, OSIJEK_CENTER.lon);
-                    if (distFromCenter <= MAX_DISTANCE_OS) {
-                        gnssPoints.push({ lat, lon, ts: pt.ts });
+    let combinedMetrics = {
+        'VOC Index': [], 'NOx Index': [], 'PM1': [], 'PM2.5': [],
+        'PM10': [], 'Temperature': [], 'Humidity': [], 'CO2 Level': []
+    };
+
+    results.forEach(res => {
+        if (!res || !res.data) return;
+        const data = res.data;
+        
+        let gnssPoints = [];
+        let metricsData = {
+            'VOC Index': [], 'NOx Index': [], 'PM1': [], 'PM2.5': [],
+            'PM10': [], 'Temperature': [], 'Humidity': [], 'CO2 Level': []
+        };
+
+        // 1. Process GNSS
+        if (data.GNSS) {
+            data.GNSS.sort((a,b) => a.ts - b.ts).forEach(pt => {
+                let gnss = parseTBVal(pt.value);
+                if (gnss.Latitude && gnss.Longitude) {
+                    let lat = parseNMEA(gnss.Latitude, gnss.latDirection);
+                    let lon = parseNMEA(gnss.Longitude, gnss.lonDirection);
+                    if (lat && lon) {
+                        let distFromCenter = getDistance(lat, lon, OSIJEK_CENTER.lat, OSIJEK_CENTER.lon);
+                        if (distFromCenter <= MAX_DISTANCE_OS) {
+                            gnssPoints.push({ lat, lon, ts: pt.ts });
+                        }
                     }
                 }
-            }
+            });
+        }
+
+        // 2. Process Telemetry
+        if (data.SGP41) {
+            data.SGP41.forEach(pt => {
+                let val = parseTBVal(pt.value);
+                if (val.VOC_Index !== undefined) metricsData['VOC Index'].push({ x: pt.ts, y: parseInt(val.VOC_Index) });
+                if (val.NOx_Index !== undefined) metricsData['NOx Index'].push({ x: pt.ts, y: parseInt(val.NOx_Index) });
+            });
+        }
+        if (data.NEXTPM) {
+            data.NEXTPM.forEach(pt => {
+                let val = parseTBVal(pt.value);
+                if (val["PM1(ug/m3)"] !== undefined) metricsData['PM1'].push({ x: pt.ts, y: parseFloat(val["PM1(ug/m3)"]) });
+                if (val["PM2_5(ug/m3)"] !== undefined) metricsData['PM2.5'].push({ x: pt.ts, y: parseFloat(val["PM2_5(ug/m3)"]) });
+                if (val["PM10(ug/m3)"] !== undefined) metricsData['PM10'].push({ x: pt.ts, y: parseFloat(val["PM10(ug/m3)"]) });
+            });
+        }
+        if (data.SHT31) {
+            data.SHT31.forEach(pt => {
+                let val = parseTBVal(pt.value);
+                if (val.temperature !== undefined) metricsData['Temperature'].push({ x: pt.ts, y: parseFloat(val.temperature) });
+                if (val.humidity !== undefined) metricsData['Humidity'].push({ x: pt.ts, y: parseFloat(val.humidity) });
+            });
+        }
+        if (data.SCD30) {
+            data.SCD30.forEach(pt => {
+                let val = parseTBVal(pt.value);
+                if (val.CO2 !== undefined) metricsData['CO2 Level'].push({ x: pt.ts, y: parseFloat(val.CO2) });
+            });
+        }
+
+        // Sort metrics for this device
+        Object.keys(metricsData).forEach(k => {
+            metricsData[k].sort((a,b) => a.x - b.x);
+            combinedMetrics[k] = combinedMetrics[k].concat(metricsData[k]);
         });
-    }
 
-    // 2. Process Telemetry for 8 Metrics
-    if (data.SGP41) {
-        data.SGP41.forEach(pt => {
-            let val = parseTBVal(pt.value);
-            if (val.VOC_Index !== undefined) metricsData['VOC Index'].push({ x: pt.ts, y: parseInt(val.VOC_Index) });
-            if (val.NOx_Index !== undefined) metricsData['NOx Index'].push({ x: pt.ts, y: parseInt(val.NOx_Index) });
-        });
-    }
-
-    if (data.NEXTPM) {
-        data.NEXTPM.forEach(pt => {
-            let val = parseTBVal(pt.value);
-            if (val["PM1(ug/m3)"] !== undefined) metricsData['PM1'].push({ x: pt.ts, y: parseFloat(val["PM1(ug/m3)"]) });
-            if (val["PM2_5(ug/m3)"] !== undefined) metricsData['PM2.5'].push({ x: pt.ts, y: parseFloat(val["PM2_5(ug/m3)"]) });
-            if (val["PM10(ug/m3)"] !== undefined) metricsData['PM10'].push({ x: pt.ts, y: parseFloat(val["PM10(ug/m3)"]) });
-        });
-    }
-
-    if (data.SHT31) {
-        data.SHT31.forEach(pt => {
-            let val = parseTBVal(pt.value);
-            if (val.temperature !== undefined) metricsData['Temperature'].push({ x: pt.ts, y: parseFloat(val.temperature) });
-            if (val.humidity !== undefined) metricsData['Humidity'].push({ x: pt.ts, y: parseFloat(val.humidity) });
-        });
-    }
-
-    if (data.BME688) {
-        data.BME688.forEach(pt => {
-            let val = parseTBVal(pt.value);
-            if (metricsData['Temperature'].length < 10) {
-                 if (val.temperature !== undefined) metricsData['Temperature'].push({ x: pt.ts, y: parseFloat(val.temperature) });
-                 if (val.humidity !== undefined) metricsData['Humidity'].push({ x: pt.ts, y: parseFloat(val.humidity) });
-            }
-        });
-    }
-
-    if (data.SCD30) {
-        data.SCD30.forEach(pt => {
-            let val = parseTBVal(pt.value);
-            if (val.CO2 !== undefined) metricsData['CO2 Level'].push({ x: pt.ts, y: parseFloat(val.CO2) });
-        });
-    }
-
-    // Sort all metrics for faster lookup
-    Object.keys(metricsData).forEach(k => metricsData[k].sort((a,b) => a.x - b.x));
-
-    // Update Map with path and AQI markers
-    updateTrajectoryWithAQI(gnssPoints, metricsData);
-
-    // Render Charts
-    Object.keys(metricsData).forEach(label => {
-        renderChart(label, metricsData[label], grid);
+        // Add to Map
+        renderDeviceOnMap(gnssPoints, metricsData, res.name);
     });
+
+    if (isAllView) {
+        grid.style.display = 'none'; // Hide charts as requested for "only map" view
+    } else {
+        grid.style.display = 'grid';
+        Object.keys(combinedMetrics).forEach(label => {
+            renderChart(label, combinedMetrics[label], grid);
+        });
+    }
+
+    // Fit bounds of all paths
+    if (trajectoryPaths.length > 0) {
+        let featureGroup = L.featureGroup(trajectoryPaths);
+        map.fitBounds(featureGroup.getBounds(), { padding: [50, 50] });
+    }
 }
 
-function updateTrajectoryWithAQI(gnssPoints, metrics) {
-    // 1. Always render the full trajectory line first
-    const coords = gnssPoints.map(p => [p.lat, p.lon]);
-    if (trajectoryPath) trajectoryPath.setLatLngs(coords);
-    
-    // Helper to clear existing markers from the map before re-rendering
-    markers.forEach(m => map.removeLayer(m));
-    markers = [];
-
+function renderDeviceOnMap(gnssPoints, metrics, deviceName) {
     if (gnssPoints.length === 0) return;
 
-    // Internal tracker for markers to handle spaital 'newest-takes-precedence' logic
-    let markerDataList = [];
+    // Create Path
+    let path = L.polyline(gnssPoints.map(p => [p.lat, p.lon]), {
+        color: '#ff1744', weight: 4, opacity: 0.9, dashArray: '10, 10'
+    }).addTo(map);
+    trajectoryPaths.push(path);
 
-    // Start Marker (static)
+    // Trackers
+    let markerDataList = [];
+    let cumulativePathDist = 0;
+
+    // Start Marker
     let startMarker = L.marker([gnssPoints[0].lat, gnssPoints[0].lon], {
         icon: L.divIcon({
-            html: '<i class="fas fa-play-circle" style="color: #00e676; font-size: 20px;"></i>',
+            html: `<i class="fas fa-play-circle" style="color: #00e676; font-size: 20px;"></i>`,
             className: 'custom-div-icon', iconSize: [20, 20], iconAnchor: [10, 10]
         })
-    }).addTo(map).bindPopup("Journey Start");
+    }).addTo(map).bindPopup(`${deviceName}: Start`);
     markers.push(startMarker);
 
-    let cumulativePathDist = 0;
-    let totalTraveled = 0;
-    
     for (let i = 1; i < gnssPoints.length; i++) {
         let prev = gnssPoints[i - 1];
         let curr = gnssPoints[i];
         let stepDist = getDistance(prev.lat, prev.lon, curr.lat, curr.lon);
-        
         cumulativePathDist += stepDist;
-        totalTraveled += stepDist;
 
-        // Every 500m of PATH TRAVELLED
         if (cumulativePathDist >= 500) {
             let pmData = findClosestValue(curr.ts, metrics['PM2.5']);
             let pmValue = pmData ? pmData.y : 0;
@@ -264,103 +274,38 @@ function updateTrajectoryWithAQI(gnssPoints, metrics) {
             let textColor = (aqi > 50 && aqi <= 100) ? '#12141c' : 'white';
 
             const aqiIcon = L.divIcon({
-                html: `<div style="background: ${bgColor}; color: ${textColor}; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; border: 2px solid rgba(255,255,255,0.7); box-shadow: 0 4px 15px rgba(0,0,0,0.4); text-align: center; line-height: 1;">${aqi}</div>`,
-                className: 'aqi-marker',
-                iconSize: [36, 36],
-                iconAnchor: [18, 18]
+                html: `<div style="background: ${bgColor}; color: ${textColor}; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; border: 2px solid white; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">${aqi}</div>`,
+                className: 'aqi-marker', iconSize: [36, 36], iconAnchor: [18, 18]
             });
 
-            // Spatial check: If this point is within 250m of ANY existing marker, we replace the older one
-            // because we are now at the same location but at a LATER time.
+            // Spatial check (250m)
             let overlapIdx = markerDataList.findIndex(m => getDistance(curr.lat, curr.lon, m.lat, m.lon) < 250);
 
             let mObj = L.marker([curr.lat, curr.lon], { icon: aqiIcon }).addTo(map);
-            mObj.bindPopup(`<b>Air Quality Detail</b><br>AQI: ${aqi}<br>PM2.5: ${pmValue} µg/m³<br>Status: ${getAQIStatus(aqi)}<br><small>Time: ${formatShortTime(new Date(curr.ts))}</small>`);
+            mObj.bindPopup(`<b>${deviceName}</b><br>AQI: ${aqi}<br>PM2.5: ${pmValue} µg/m³<br><small>Time: ${formatShortTime(new Date(curr.ts))}</small>`);
 
             if (overlapIdx !== -1) {
-                // Remove old marker from map and our lists
                 map.removeLayer(markerDataList[overlapIdx].markerObj);
                 let visualIdx = markers.indexOf(markerDataList[overlapIdx].markerObj);
                 if (visualIdx > -1) markers.splice(visualIdx, 1);
-                
-                // Update tracker with new marker
-                markerDataList[overlapIdx] = { markerObj: mObj, lat: curr.lat, lon: curr.lon, ts: curr.ts };
+                markerDataList[overlapIdx] = { markerObj: mObj, lat: curr.lat, lon: curr.lon };
             } else {
-                markerDataList.push({ markerObj: mObj, lat: curr.lat, lon: curr.lon, ts: curr.ts });
+                markerDataList.push({ markerObj: mObj, lat: curr.lat, lon: curr.lon });
             }
-
             markers.push(mObj);
-            
-            // Subtract interval to maintain consistent 500m path-segments
-            cumulativePathDist -= 500; 
+            cumulativePathDist -= 500;
         }
     }
 
-    // End Marker (static)
+    // End Marker
     const lastIdx = gnssPoints.length - 1;
     let endMarker = L.marker([gnssPoints[lastIdx].lat, gnssPoints[lastIdx].lon], {
         icon: L.divIcon({
             html: '<i class="fas fa-map-marker-alt" style="color: #ff1744; font-size: 24px;"></i>',
             className: 'custom-div-icon', iconSize: [24, 24], iconAnchor: [12, 24]
         })
-    }).addTo(map).bindPopup(`Journey End<br>Total Path: ${Math.round(totalTraveled)}m`);
+    }).addTo(map).bindPopup(`${deviceName}: End`);
     markers.push(endMarker);
-
-    // Ensure map bounds cover the whole journey
-    setTimeout(() => {
-        if (trajectoryPath && trajectoryPath.getLatLngs().length > 0) {
-            map.fitBounds(trajectoryPath.getBounds(), { padding: [50, 50] });
-        }
-    }, 200);
-}
-
-function findClosestValue(ts, data) {
-    if (!data || data.length === 0) return null;
-    let closest = data[0];
-    let minDiff = Math.abs(ts - closest.x);
-    for (let i = 1; i < data.length; i++) {
-        let diff = Math.abs(ts - data[i].x);
-        if (diff < minDiff) {
-            minDiff = diff;
-            closest = data[i];
-        }
-    }
-    return closest;
-}
-
-function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000; // Radius of Earth in meters
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-}
-
-function calculateSimplifiedAQI(pm25) {
-    if (pm25 <= 12) return Math.round((50 / 12) * pm25);
-    if (pm25 <= 35.4) return Math.round(((100 - 51) / (35.4 - 12.1)) * (pm25 - 12.1) + 51);
-    if (pm25 <= 55.4) return Math.round(((150 - 101) / (55.4 - 35.5)) * (pm25 - 35.5) + 101);
-    if (pm25 <= 150.4) return Math.round(((200 - 151) / (150.4 - 55.5)) * (pm25 - 55.5) + 151);
-    return 250;
-}
-
-function getAQIColor(aqi) {
-    if (aqi <= 50) return '#00e676';
-    if (aqi <= 100) return '#ffea00';
-    if (aqi <= 150) return '#ff9100';
-    if (aqi <= 200) return '#ff1744';
-    return '#8f3f97';
-}
-
-function getAQIStatus(aqi) {
-    if (aqi <= 50) return 'Good';
-    if (aqi <= 100) return 'Moderate';
-    if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
-    if (aqi <= 200) return 'Unhealthy';
-    return 'Very Unhealthy';
 }
 
 function renderChart(label, dataPoints, container) {
@@ -388,7 +333,6 @@ function renderChart(label, dataPoints, container) {
         return;
     }
 
-    // Sort by timestamp
     dataPoints.sort((a,b) => a.x - b.x);
 
     new Chart(canvas, {
@@ -398,53 +342,30 @@ function renderChart(label, dataPoints, container) {
                 label: label,
                 data: dataPoints,
                 borderColor: config.color,
-                backgroundColor: config.color + '1a', // 10% opacity
-                borderWidth: 3,
-                pointRadius: 0,
-                pointHoverRadius: 6,
-                fill: true,
-                tension: 0.4
+                backgroundColor: config.color + '1a',
+                borderWidth: 3, pointRadius: 0, pointHoverRadius: 6, fill: true, tension: 0.4
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             interaction: { intersect: false, mode: 'index' },
             scales: {
                 x: {
-                    type: 'linear',
-                    grid: { display: false },
-                    ticks: {
-                        callback: (val) => formatShortTime(new Date(val)),
-                        color: '#888',
-                        maxTicksLimit: 6
-                    }
+                    type: 'linear', grid: { display: false },
+                    ticks: { callback: (val) => formatShortTime(new Date(val)), color: '#888', maxTicksLimit: 6 }
                 },
-                y: {
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    ticks: { color: '#888' }
-                }
+                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888' } }
             },
             plugins: {
                 legend: { display: false },
-                tooltip: {
-                    backgroundColor: 'rgba(18, 20, 28, 0.9)',
-                    titleFont: { family: 'Outfit', size: 14 },
-                    bodyFont: { family: 'Outfit', size: 13 },
-                    callbacks: {
-                        title: (items) => formatFullDate(new Date(items[0].parsed.x))
-                    }
-                }
+                tooltip: { backgroundColor: 'rgba(18, 20, 28, 0.9)', titleFont: { family: 'Outfit'}, bodyFont: { family: 'Outfit'} }
             }
         }
     });
 }
 
-// Helpers
 function parseTBVal(val) {
-    try {
-        return typeof val === 'string' ? JSON.parse(val.replace(/[“”]/g, '"')) : val;
-    } catch(e) { return {}; }
+    try { return typeof val === 'string' ? JSON.parse(val.replace(/[“”]/g, '"')) : val; } catch(e) { return {}; }
 }
 
 function parseNMEA(coordStr, direction) {
@@ -460,10 +381,49 @@ function parseNMEA(coordStr, direction) {
     return decimal;
 }
 
-function formatShortTime(d) {
-    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function formatFullDate(d) {
-    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+function findClosestValue(ts, data) {
+    if (!data || data.length === 0) return null;
+    let closest = data[0];
+    let minDiff = Math.abs(ts - closest.x);
+    for (let i = 1; i < data.length; i++) {
+        let diff = Math.abs(ts - data[i].x);
+        if (diff < minDiff) { minDiff = diff; closest = data[i]; }
+    }
+    return closest;
+}
+
+function calculateSimplifiedAQI(pm25) {
+    if (pm25 <= 12) return Math.round((50 / 12) * pm25);
+    if (pm25 <= 35.4) return Math.round(((100 - 51) / (35.4 - 12.1)) * (pm25 - 12.1) + 51);
+    if (pm25 <= 55.4) return Math.round(((150 - 101) / (55.4 - 35.5)) * (pm25 - 35.5) + 101);
+    if (pm25 <= 150.4) return Math.round(((200 - 151) / (150.4 - 55.5)) * (pm25 - 55.5) + 151);
+    return 250;
+}
+
+function getAQIColor(aqi) {
+    if (aqi <= 50) return '#00e676';
+    if (aqi <= 100) return '#ffea00';
+    if (aqi <= 150) return '#ff9100';
+    if (aqi <= 200) return '#ff1744';
+    return '#8f3f97';
+}
+
+function getAQIStatus(aqi) {
+    if (aqi <= 50) return 'Good';
+    if (aqi <= 100) return 'Moderate';
+    if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
+    if (aqi <= 200) return 'Unhealthy';
+    return 'Very Unhealthy';
+}
+
+function formatShortTime(d) {
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
