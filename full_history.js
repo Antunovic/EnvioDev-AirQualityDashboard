@@ -220,37 +220,42 @@ function processAndRender(data) {
 }
 
 function updateTrajectoryWithAQI(gnssPoints, metrics) {
+    // 1. Always render the full trajectory line first
     const coords = gnssPoints.map(p => [p.lat, p.lon]);
     if (trajectoryPath) trajectoryPath.setLatLngs(coords);
     
-    // Clear old visual markers
-    // We'll maintain an internal list of objects to track location/ts for replacement logic
-    let markerList = []; 
-
     // Helper to clear existing markers from the map before re-rendering
     markers.forEach(m => map.removeLayer(m));
     markers = [];
 
     if (gnssPoints.length === 0) return;
 
-    // Start Marker
-    markers.push(L.marker([gnssPoints[0].lat, gnssPoints[0].lon], {
+    // Internal tracker for markers to handle spaital 'newest-takes-precedence' logic
+    let markerDataList = [];
+
+    // Start Marker (static)
+    let startMarker = L.marker([gnssPoints[0].lat, gnssPoints[0].lon], {
         icon: L.divIcon({
             html: '<i class="fas fa-play-circle" style="color: #00e676; font-size: 20px;"></i>',
             className: 'custom-div-icon', iconSize: [20, 20], iconAnchor: [10, 10]
         })
-    }).addTo(map).bindPopup("Journey Start"));
+    }).addTo(map).bindPopup("Journey Start");
+    markers.push(startMarker);
 
-    let lastMarkerPoint = gnssPoints[0];
+    let cumulativePathDist = 0;
     let totalTraveled = 0;
-
+    
     for (let i = 1; i < gnssPoints.length; i++) {
-        let currentPoint = gnssPoints[i];
-        let distFromLastMarker = getDistance(lastMarkerPoint.lat, lastMarkerPoint.lon, currentPoint.lat, currentPoint.lon);
-        totalTraveled += getDistance(gnssPoints[i-1].lat, gnssPoints[i-1].lon, currentPoint.lat, currentPoint.lon);
+        let prev = gnssPoints[i - 1];
+        let curr = gnssPoints[i];
+        let stepDist = getDistance(prev.lat, prev.lon, curr.lat, curr.lon);
+        
+        cumulativePathDist += stepDist;
+        totalTraveled += stepDist;
 
-        if (distFromLastMarker >= 500) {
-            let pmData = findClosestValue(currentPoint.ts, metrics['PM2.5']);
+        // Every 500m of PATH TRAVELLED
+        if (cumulativePathDist >= 500) {
+            let pmData = findClosestValue(curr.ts, metrics['PM2.5']);
             let pmValue = pmData ? pmData.y : 0;
             let aqi = calculateSimplifiedAQI(pmValue);
             let bgColor = getAQIColor(aqi);
@@ -263,46 +268,48 @@ function updateTrajectoryWithAQI(gnssPoints, metrics) {
                 iconAnchor: [18, 18]
             });
 
-            // Check if we are too close (e.g., < 200m) to ANY already placed marker (for overlapping paths)
-            // If we are, we replace the older one in that slot
-            let existingIdx = markerList.findIndex(m => getDistance(currentPoint.lat, currentPoint.lon, m.lat, m.lon) < 200);
+            // Spatial check: If this point is within 250m of ANY existing marker, we replace the older one
+            // because we are now at the same location but at a LATER time.
+            let overlapIdx = markerDataList.findIndex(m => getDistance(curr.lat, curr.lon, m.lat, m.lon) < 250);
 
-            let mObj = L.marker([currentPoint.lat, currentPoint.lon], { icon: aqiIcon }).addTo(map);
-            mObj.bindPopup(`<b>Air Quality Detail</b><br>AQI: ${aqi}<br>PM2.5: ${pmValue} µg/m³<br>Status: ${getAQIStatus(aqi)}<br><small>Updated: ${formatShortTime(new Date(currentPoint.ts))}</small>`);
-            
-            if (existingIdx !== -1) {
-                // Remove old marker from map
-                map.removeLayer(markerList[existingIdx].markerObj);
-                // Also remove it from our visual 'markers' tracker used for cleanup
-                let globalIdx = markers.indexOf(markerList[existingIdx].markerObj);
-                if (globalIdx > -1) markers.splice(globalIdx, 1);
+            let mObj = L.marker([curr.lat, curr.lon], { icon: aqiIcon }).addTo(map);
+            mObj.bindPopup(`<b>Air Quality Detail</b><br>AQI: ${aqi}<br>PM2.5: ${pmValue} µg/m³<br>Status: ${getAQIStatus(aqi)}<br><small>Time: ${formatShortTime(new Date(curr.ts))}</small>`);
+
+            if (overlapIdx !== -1) {
+                // Remove old marker from map and our lists
+                map.removeLayer(markerDataList[overlapIdx].markerObj);
+                let visualIdx = markers.indexOf(markerDataList[overlapIdx].markerObj);
+                if (visualIdx > -1) markers.splice(visualIdx, 1);
                 
-                // Replace in markerList
-                markerList[existingIdx] = { markerObj: mObj, lat: currentPoint.lat, lon: currentPoint.lon };
+                // Update tracker with new marker
+                markerDataList[overlapIdx] = { markerObj: mObj, lat: curr.lat, lon: curr.lon, ts: curr.ts };
             } else {
-                markerList.push({ markerObj: mObj, lat: currentPoint.lat, lon: currentPoint.lon });
+                markerDataList.push({ markerObj: mObj, lat: curr.lat, lon: curr.lon, ts: curr.ts });
             }
 
             markers.push(mObj);
-            lastMarkerPoint = currentPoint;
+            
+            // Subtract interval to maintain consistent 500m path-segments
+            cumulativePathDist -= 500; 
         }
     }
 
-    // End Marker
+    // End Marker (static)
     const lastIdx = gnssPoints.length - 1;
-    markers.push(L.marker([gnssPoints[lastIdx].lat, gnssPoints[lastIdx].lon], {
+    let endMarker = L.marker([gnssPoints[lastIdx].lat, gnssPoints[lastIdx].lon], {
         icon: L.divIcon({
             html: '<i class="fas fa-map-marker-alt" style="color: #ff1744; font-size: 24px;"></i>',
             className: 'custom-div-icon', iconSize: [24, 24], iconAnchor: [12, 24]
         })
-    }).addTo(map).bindPopup(`Journey End<br>Total Trajectory: ${Math.round(totalTraveled)}m`));
+    }).addTo(map).bindPopup(`Journey End<br>Total Path: ${Math.round(totalTraveled)}m`);
+    markers.push(endMarker);
 
-    // Wait for markers to be added before fitting bounds
+    // Ensure map bounds cover the whole journey
     setTimeout(() => {
         if (trajectoryPath && trajectoryPath.getLatLngs().length > 0) {
             map.fitBounds(trajectoryPath.getBounds(), { padding: [50, 50] });
         }
-    }, 100);
+    }, 200);
 }
 
 function findClosestValue(ts, data) {
