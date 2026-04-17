@@ -95,19 +95,6 @@
             justify-content: space-between;
             align-items: center;
         }
-        .map-overlay {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 1000;
-            background: rgba(18, 20, 28, 0.8);
-            padding: 10px 15px;
-            border-radius: 10px;
-            color: white;
-            font-size: 0.8rem;
-            border: 1px solid rgba(255,255,255,0.1);
-            backdrop-filter: blur(5px);
-        }
     </style>
 </head>
 <body class="dark-theme">
@@ -161,9 +148,6 @@
 
         <div class="map-container">
             <div id="map"></div>
-            <div class="map-overlay">
-                <i class="fas fa-route" style="color: #4facfe;"></i> Historical Trajectory
-            </div>
         </div>
         
         <div id="hist-charts-grid" class="grid">
