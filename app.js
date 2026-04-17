@@ -99,14 +99,13 @@ function initMap() {
         attributionControl: false
     }).setView([45.5550, 18.6761], 13);
 
-    // Theme-aware tiles
-    const isLight = document.body.classList.contains('light-theme');
-    const tileUrl = isLight 
-        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    // Google Satellite Hybrid Tiles
+    const satelliteUrl = 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
+    const subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
 
-    L.tileLayer(tileUrl, {
-        maxZoom: 19
+    L.tileLayer(satelliteUrl, {
+        maxZoom: 20,
+        subdomains: subdomains
     }).addTo(map);
 
     // Render transparent interactive markers for all devices
@@ -125,18 +124,7 @@ function initMap() {
     highlightActiveMarker();
     
     window.addEventListener('themeChanged', (e) => {
-        const isLight = e.detail.theme === 'light';
-        const tileUrl = isLight 
-            ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-            : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-        
-        map.eachLayer((layer) => {
-            if (layer instanceof L.TileLayer) {
-                map.removeLayer(layer);
-            }
-        });
-        
-        L.tileLayer(tileUrl, { maxZoom: 19 }).addTo(map);
+        // Keep satellite view regardless of theme for consistency
     });
 
     // Force Leaflet to recalculate map dimensions safely
